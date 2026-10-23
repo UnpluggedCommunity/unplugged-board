@@ -1,0 +1,34 @@
+import { fail, type RequestEvent } from '@sveltejs/kit';
+import type { ListingType } from '$lib/constants';
+import { loadListing } from './listings';
+
+export async function loadDetail(event: RequestEvent, type: ListingType) {
+	const me = await event.locals.getMe();
+	const canSeeContacts = Boolean(me?.isMember);
+	const { listing, contact } = await loadListing(
+		event.locals.supabase,
+		type,
+		event.params.id ?? '',
+		canSeeContacts
+	);
+	return { listing, contact, canSeeContacts, origin: event.url.origin };
+}
+
+export const detailActions = {
+	// "Request removal" — open to everyone, including visitors.
+	removal: async ({ request, locals, params }: RequestEvent) => {
+		const form = await request.formData();
+		if (form.get('website')) return { removalSent: true }; // honeypot: bots fill every field
+		const reason = String(form.get('reason') ?? '').trim();
+		const email = String(form.get('email') ?? '').trim() || null;
+		if (reason.length < 5) return fail(400, { removalError: 'Please tell us briefly why.' });
+		const { error } = await locals.supabase
+			.from('removal_requests')
+			.insert({ listing_id: Number(params.id), reason: reason.slice(0, 2000), email });
+		if (error) {
+			console.error('removal', error);
+			return fail(500, { removalError: 'Something went wrong. Please try again.' });
+		}
+		return { removalSent: true };
+	}
+};

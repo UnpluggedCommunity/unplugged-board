@@ -1,0 +1,16 @@
+{
+	// Cloudflare Workers config. Public values only — secrets go in the Cloudflare dashboard.
+	"name": "unplugged-board",
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+	"observability": { "enabled": true },
+	"vars": {
+		"PUBLIC_SUPABASE_URL": "https://YOUR-PROJECT.supabase.co",
+		"PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_REPLACE_ME"
+	}
+}
