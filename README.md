@@ -10,6 +10,28 @@ Mobile-first, in inglese per gli utenti, gratis da far girare.
 
 ---
 
+## Cosa possono fare i membri
+
+1. **Login con Google** (bottone in alto a destra o tab **Me**).
+2. **Me → Job profile**: 5 passaggi brevi (dati, visto e obiettivi, patente e ticket, esperienze,
+   inglese e punti di forza). Si compila **una volta sola** e si aggiorna quando si vuole.
+3. **Me → My CVs**: fino a 3 CV (PDF, max 2 MB), ognuno con le categorie per cui va bene
+   (es. "Hospitality CV"). Sono privati: li vede solo il proprietario.
+4. Su un annuncio di lavoro: **Apply with Unplugged** →
+   - sceglie il CV (il sito propone quello adatto alla categoria del lavoro);
+   - **Write it for me**: l'AI scrive email (o messaggio breve) usando solo i dati del profilo;
+   - **Send with my CV**: l'email parte da Unplugged con il CV allegato; le risposte del datore di
+     lavoro arrivano direttamente alla mail del membro, che riceve anche una copia.
+   - Se l'annuncio ha solo un telefono: messaggio pronto su **WhatsApp** o **SMS**, poi
+     **Then send my CV** per mandare il PDF nella stessa chat.
+   - Se c'è solo un link: copia della cover letter + apertura del sito dell'annuncio.
+5. **Me → Applications**: lo storico delle candidature. **Saved**: gli annunci salvati col segnalibro.
+
+Limiti per proteggere i piani gratuiti: 15 bozze AI al giorno e 10 email al giorno per membro;
+una sola email per annuncio.
+
+---
+
 ## Guida per lo staff
 
 ### Caricare un annuncio (oggi: con "Paste JSON")
@@ -97,7 +119,8 @@ Tutto gratuito, nessuna carta di credito necessaria (tranne il dominio).
 1. Crea un account su [supabase.com](https://supabase.com) → **New project**
    - Name: `unplugged-board` · Region: **Sydney (ap-southeast-2)** · salva la password del database.
 2. **SQL Editor** → incolla `supabase/migrations/0001_init.sql` → **Run**.
-   Poi, uno alla volta, `0002_suburb_zones.sql` e `0003_optional_access_code.sql` → **Run**.
+   Poi, uno alla volta, `0002_suburb_zones.sql`, `0003_optional_access_code.sql` e
+   `0004_profiles_applications.sql` → **Run**.
 3. Sempre nel SQL Editor, rendi te stesso admin (metti la tua email Google):
    ```sql
    insert into staff_invites (email, role) values ('tua.email@gmail.com', 'admin');
@@ -127,7 +150,25 @@ Tutto gratuito, nessuna carta di credito necessaria (tranne il dominio).
    - Build command: `npm run build` · Deploy command: `npx wrangler deploy`
 4. Ogni modifica su GitHub (branch `main`) viene pubblicata da sola.
 
-### 4. Dominio
+### 4. AI e invio email (chiavi segrete)
+
+Le chiavi segrete **non vanno mai nel codice**: si mettono in Cloudflare → **Workers & Pages →
+unplugged-board → Settings → Variables and Secrets → Add** (tipo *Secret*).
+
+| Nome | Da dove | A cosa serve |
+|---|---|---|
+| `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com) → *Get API key* (progetto **senza** fatturazione) | Bozze delle candidature (e in Fase 1b la lettura degli screenshot) |
+| `GEMINI_MODEL` | facoltativo, default `gemini-3.5-flash-lite` | Cambiare modello senza toccare il codice |
+| `BREVO_API_KEY` | [brevo.com](https://www.brevo.com) → piano Free → *SMTP & API → API Keys* | Invio delle candidature con CV allegato (300 email/giorno gratis) |
+| `EMAIL_FROM` | un indirizzo del vostro dominio verificato su Brevo, es. `apply@unpluggedwa.com` | Mittente delle candidature ("Nome via Unplugged") |
+
+Senza queste chiavi il sito funziona lo stesso: la bozza viene creata con un modello semplice (senza AI)
+e l'invio avviene dall'app email del membro.
+
+**Attenzione (free tier Gemini):** Google può usare i dati inviati per migliorare i suoi prodotti e
+farli leggere a revisori umani. Per questo all'AI non mandiamo mai telefono, email né il file del CV.
+
+### 5. Dominio
 
 Cloudflare → **Domain Registration → Register domains** (prezzo di costo, ~US$11/anno per un `.com`).
 Poi **Workers & Pages → unplugged-board → Settings → Domains & Routes → Add → Custom domain**.
@@ -149,6 +190,10 @@ npm run check          # controllo errori
 | `src/lib/constants.ts` | Zone, categorie, durate |
 | `src/lib/fields.ts` | Tutti i campi degli annunci (form, Paste JSON, AI) |
 | `src/lib/format.ts` | Formattazione prezzi/date e messaggio WhatsApp |
+| `src/lib/profile.ts` | Campi del profilo lavoro dei membri |
+| `src/lib/server/ai.ts` | Unico punto che parla con l'AI (Gemini): per cambiare provider si tocca solo questo |
+| `src/lib/server/application.ts` | Prompt e logica delle email di candidatura |
+| `src/lib/server/email.ts` | Unico punto che invia email (Brevo) |
 | `supabase/migrations/` | Database, regole di accesso, tabella zone |
 | `extraction-prompt.md` | Il prompt di estrazione per l'AI |
 

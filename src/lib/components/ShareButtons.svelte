@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { whatsappText, type Listing } from '$lib/format';
+	import Icon from './Icon.svelte';
 
 	let { listing, origin, compact = false }: { listing: Listing; origin: string; compact?: boolean } =
 		$props();
@@ -38,8 +39,15 @@
 </script>
 
 <div class="share" class:compact>
-	<button type="button" class="btn small" onclick={copy}>{copied ? '✓ Copied' : 'Copy for WhatsApp'}</button>
-	<button type="button" class="btn small ghost" onclick={share}>Share</button>
+	{#if compact}
+		<button type="button" class="icon-btn" class:on={copied} onclick={copy} aria-label="Copy for WhatsApp">
+			<Icon name={copied ? 'check' : 'copy'} />
+		</button>
+		<button type="button" class="icon-btn" onclick={share} aria-label="Share"><Icon name="share" /></button>
+	{:else}
+		<button type="button" class="btn small" onclick={copy}>{copied ? '✓ Copied' : 'Copy for WhatsApp'}</button>
+		<button type="button" class="btn small ghost" onclick={share}>Share</button>
+	{/if}
 </div>
 
 <style>

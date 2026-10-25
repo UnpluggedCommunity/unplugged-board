@@ -11,7 +11,17 @@ export async function loadDetail(event: RequestEvent, type: ListingType) {
 		event.params.id ?? '',
 		canSeeContacts
 	);
-	return { listing, contact, canSeeContacts, origin: event.url.origin };
+	let saved = false;
+	if (me) {
+		const { data } = await event.locals.supabase
+			.from('saved_listings')
+			.select('listing_id')
+			.eq('user_id', me.id)
+			.eq('listing_id', listing.id)
+			.maybeSingle();
+		saved = Boolean(data);
+	}
+	return { listing, contact, canSeeContacts, saved, origin: event.url.origin };
 }
 
 export const detailActions = {

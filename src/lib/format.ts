@@ -47,6 +47,7 @@ export interface Listing {
 	transport: string | null;
 	photos: string[];
 	og_image: string | null;
+	apply_channel?: 'email' | 'phone' | 'link' | null;
 	posted_at: string | null;
 	published_at: string | null;
 	expires_at: string | null;

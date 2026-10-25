@@ -11,4 +11,4 @@
 	<meta property="og:image" content="{data.origin}/og-default.png" />
 </svelte:head>
 
-<Board type="job" listings={data.listings} filters={data.filters} />
+<Board type="job" listings={data.listings} filters={data.filters} saved={data.saved} />
