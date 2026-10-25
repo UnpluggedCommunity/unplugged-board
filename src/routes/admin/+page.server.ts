@@ -6,16 +6,18 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!me) redirect(303, `/login?next=${encodeURIComponent(url.pathname)}`);
 	if (!me.isAdmin) error(403, 'Admins only');
 
-	const [{ data: staff }, { data: invites }] = await Promise.all([
+	const [{ data: staff }, { data: invites }, { data: access }] = await Promise.all([
 		locals.supabase
 			.from('profiles')
 			.select('id, email, display_name, role')
 			.in('role', ['staff', 'admin'])
 			.order('role'),
-		locals.supabase.from('staff_invites').select('email, role').order('email')
+		locals.supabase.from('staff_invites').select('email, role').order('email'),
+		locals.supabase.rpc('access_settings')
 	]);
 	const active = new Set((staff ?? []).map((s) => s.email));
 	return {
+		codeRequired: (access?.[0]?.code_required as boolean | undefined) ?? true,
 		staff: staff ?? [],
 		pending: (invites ?? []).filter((i) => !active.has(i.email))
 	};
@@ -29,6 +31,11 @@ export const actions: Actions = {
 		const { error: err } = await locals.supabase.rpc('set_access_code', { new_code: code });
 		if (err) return fail(500, { codeMessage: err.message });
 		return { codeSaved: code.toUpperCase() };
+	},
+	codeOff: async ({ locals }) => {
+		const { error: err } = await locals.supabase.rpc('set_code_required', { required: false });
+		if (err) return fail(500, { codeMessage: err.message });
+		return { codeOffDone: true };
 	},
 	invite: async ({ locals, request }) => {
 		const form = await request.formData();

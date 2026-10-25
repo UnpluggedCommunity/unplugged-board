@@ -151,10 +151,11 @@
 			{/if}
 		{:else}
 			<h2 class="display join-title">Contacts are for Unplugged members</h2>
-			<p>
-				Join the Unplugged community on WhatsApp, then log in and enter the
-				<strong>Community Access Code</strong> shared in the groups.
-			</p>
+			{#if data.me}
+				<p>Enter the <strong>Community Access Code</strong> shared in the Unplugged WhatsApp groups.</p>
+			{:else}
+				<p>Log in with Google to see the contact and the original post.</p>
+			{/if}
 			{#if data.me}
 				<a class="btn primary block" href="/join?next={next}">Enter the access code</a>
 			{:else}

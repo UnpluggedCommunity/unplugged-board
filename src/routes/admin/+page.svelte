@@ -11,15 +11,27 @@
 
 	<div class="card">
 		<h2 class="label">Community Access Code</h2>
-		<p class="muted">
-			Changing it logs every member out of the contacts: they'll need the new code from the WhatsApp
-			groups. Staff are not affected.
-		</p>
+		{#if data.codeRequired}
+			<p><span class="badge gold">On</span> Members must enter the code to see contacts.</p>
+			<p class="muted">
+				Changing it logs every member out of the contacts: they'll need the new code from the WhatsApp
+				groups. Staff are not affected.
+			</p>
+		{:else}
+			<p><span class="badge">Off</span> Anyone logged in with Google sees contacts. Visitors still don't.</p>
+			<p class="muted">Set a code below to switch the requirement on.</p>
+		{/if}
 		<form method="POST" action="?/code" use:enhance class="inline">
 			<input name="code" placeholder="New code" autocomplete="off" autocapitalize="characters" class="mono" required minlength="4" />
-			<button class="btn primary" onclick={(e) => !confirm('Change the code for everyone?') && e.preventDefault()}>Change</button>
+			<button class="btn primary" onclick={(e) => !confirm('Change the code for everyone?') && e.preventDefault()}>{data.codeRequired ? 'Change' : 'Set code'}</button>
 		</form>
 		{#if form?.codeSaved}<p class="notice ok">New code: <strong class="mono">{form.codeSaved}</strong> — share it in the WhatsApp groups.</p>{/if}
+		{#if data.codeRequired}
+			<form method="POST" action="?/codeOff" use:enhance>
+				<button class="btn small ghost" onclick={(e) => !confirm('Let every logged-in user see contacts without a code?') && e.preventDefault()}>Turn the code off</button>
+			</form>
+		{/if}
+		{#if form?.codeOffDone}<p class="notice ok">Code turned off.</p>{/if}
 		{#if form?.codeMessage}<p class="notice error">{form.codeMessage}</p>{/if}
 	</div>
 

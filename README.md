@@ -63,11 +63,15 @@ Nella pagina **Staff**:
 Jobs 10 giorni · Rooms 14 giorni · Marketplace 30 giorni. Gli annunci scaduti spariscono da soli
 dalla bacheca. Se metti una data troppo vecchia il form ti avvisa che l'annuncio sarebbe già scaduto.
 
-### Cambiare il Community Access Code (solo Admin)
+### Community Access Code (solo Admin)
 
-**Staff → Admin → Community Access Code** → scrivi il nuovo codice → **Change**.
-Da quel momento **tutti i membri** (non lo staff) devono reinserire il codice nuovo: condividilo nei
-gruppi WhatsApp. Il codice non distingue maiuscole/minuscole.
+All'inizio il codice è **spento**: chiunque faccia login con Google vede i contatti (i visitatori
+non loggati no).
+
+- **Attivarlo o cambiarlo:** **Staff → Admin → Community Access Code** → scrivi il codice →
+  **Set code** / **Change**. Da quel momento **tutti i membri** (non lo staff) devono inserire il
+  codice: condividilo nei gruppi WhatsApp. Non distingue maiuscole/minuscole.
+- **Spegnerlo di nuovo:** **Turn the code off**.
 
 ### Aggiungere o togliere staff (solo Admin)
 
@@ -93,7 +97,7 @@ Tutto gratuito, nessuna carta di credito necessaria (tranne il dominio).
 1. Crea un account su [supabase.com](https://supabase.com) → **New project**
    - Name: `unplugged-board` · Region: **Sydney (ap-southeast-2)** · salva la password del database.
 2. **SQL Editor** → incolla `supabase/migrations/0001_init.sql` → **Run**.
-   Poi incolla `supabase/migrations/0002_suburb_zones.sql` → **Run**.
+   Poi, uno alla volta, `0002_suburb_zones.sql` e `0003_optional_access_code.sql` → **Run**.
 3. Sempre nel SQL Editor, rendi te stesso admin (metti la tua email Google):
    ```sql
    insert into staff_invites (email, role) values ('tua.email@gmail.com', 'admin');
