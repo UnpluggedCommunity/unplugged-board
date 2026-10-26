@@ -14,10 +14,7 @@
 		{#if data.me?.isAdmin}<a class="btn small ghost" href="/admin">Admin</a>{/if}
 	</div>
 
-	<div class="new">
-		<a class="btn primary" href="/staff/new?type=job">+ New job</a>
-		<a class="btn primary" href="/staff/new?type=room">+ New room</a>
-	</div>
+	<a class="btn primary block new" href="/staff/new">+ New listing — from screenshots</a>
 
 	{#if data.removals.length}
 		<div class="card removals">
@@ -99,9 +96,7 @@
 		margin: 0;
 	}
 	.new {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 10px;
+		min-height: 52px;
 	}
 	.removals h2 {
 		margin: 0 0 8px;

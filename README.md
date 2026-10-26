@@ -35,27 +35,28 @@ annuncio, e solo all'indirizzo di contatto dell'annuncio (nessuno può usare il 
 
 ## Guida per lo staff
 
-### Caricare un annuncio (oggi: con "Paste JSON")
+### Caricare un annuncio (Quick Add con screenshot)
 
-1. Apri il sito dal telefono → **Staff** (in alto a destra) → **+ New job** oppure **+ New room**.
-2. Fai gli screenshot del post Facebook (anche 2–3 se è lungo).
-3. Apri il **Claude Project "Unplugged Board"** (vedi sotto), incolla gli screenshot e invia.
-   Claude risponde con un blocco JSON: copialo tutto.
-4. Torna sul sito, incolla nel riquadro **Paste JSON** → **Fill the form**.
-5. Controlla i campi evidenziati in arancione (quelli incerti) e gli eventuali ⚠️ avvisi.
-6. Premi **Publish**. Fatto: vieni portato alla scheda pubblicata.
+1. Dal telefono: **Staff** (in alto) → **+ New listing — from screenshots**.
+2. Nel riquadro **Quick Add**: lascia **Auto-detect** (o scegli Job / Room) e tocca il riquadro
+   tratteggiato per aggiungere gli **screenshot** del post Facebook (anche 2–3 se è lungo) oppure la
+   **locandina** del datore di lavoro. Max 6 immagini.
+3. **Read with AI** → in circa 10 secondi il form si compila da solo.
+4. Controlla:
+   - i campi segnati **· check** (l'AI non era sicura);
+   - il riquadro **⚠️ Check before publishing** (possibili truffe: bond prima di vedere la stanza,
+     prezzi troppo bassi, pagamenti strani…);
+   - il riquadro **Possible duplicate** (un annuncio simile è già stato caricato negli ultimi 30 giorni).
+5. Per stanze e oggetti aggiungi le **foto vere** nella sezione **Photos** (non gli screenshot): vengono
+   ridimensionate in automatico.
+6. **Publish**.
 
-> Nella Fase 1b arriva il pulsante per caricare gli screenshot direttamente sul sito (AI Gemini).
-> Il "Paste JSON" resta come piano B.
+Gli screenshot non vengono salvati: vanno solo all'AI. Se l'AI non risponde (quota gratuita finita),
+compila a mano oppure usa **Paste JSON** con il Claude Project (vedi sotto).
 
-**Creare il Claude Project (una volta sola):** su claude.ai → Projects → Create project
-"Unplugged Board" → nelle *Project instructions* incolla tutto il contenuto di
-[`extraction-prompt.md`](extraction-prompt.md) (dalla riga `You extract job and room listings…` in giù).
-Sostituisci `{{TODAY}}` con "the date of today" oppure scrivi la data nel messaggio quando carichi gli
-screenshot.
-
-**Privacy:** prima di caricare, se possibile ritaglia via foto profilo e nomi che non servono.
-Gli screenshot non vengono mai salvati sul sito.
+**Piano B — Claude Project:** su claude.ai crea un Project "Unplugged Board" e incolla nelle
+*Project instructions* il contenuto di [`extraction-prompt.md`](extraction-prompt.md). Poi incolli lì
+gli screenshot, copi il JSON che risponde e lo incolli in **Paste JSON** → **Fill the form**.
 
 ### Pubblicare su WhatsApp
 
@@ -120,8 +121,8 @@ Tutto gratuito, nessuna carta di credito necessaria (tranne il dominio).
 1. Crea un account su [supabase.com](https://supabase.com) → **New project**
    - Name: `unplugged-board` · Region: **Sydney (ap-southeast-2)** · salva la password del database.
 2. **SQL Editor** → incolla `supabase/migrations/0001_init.sql` → **Run**.
-   Poi, uno alla volta, `0002_suburb_zones.sql`, `0003_optional_access_code.sql` e
-   `0004_profiles_applications.sql` → **Run**.
+   Poi, uno alla volta, `0002_suburb_zones.sql`, `0003_optional_access_code.sql`,
+   `0004_profiles_applications.sql` e `0005_listing_photos.sql` → **Run**.
 3. Sempre nel SQL Editor, rendi te stesso admin (metti la tua email Google):
    ```sql
    insert into staff_invites (email, role) values ('tua.email@gmail.com', 'admin');

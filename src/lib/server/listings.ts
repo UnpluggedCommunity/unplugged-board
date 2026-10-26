@@ -128,3 +128,40 @@ export async function savedIds(supabase: SupabaseClient, me: App.Me | null): Pro
 	const { data } = await supabase.from('saved_listings').select('listing_id').eq('user_id', me.id);
 	return (data ?? []).map((r) => r.listing_id as number);
 }
+
+/** Live or recent listings that look like the same ad (anti-duplicate warning for staff). */
+export async function findSimilar(
+	supabase: SupabaseClient,
+	l: { type: string; title?: unknown; suburb?: unknown; contact_phone?: unknown; contact_email?: unknown }
+) {
+	const since = new Date(Date.now() - 30 * 86400000).toISOString();
+	const words = String(l.title ?? '').replace(/[%,()*\\.:"]/g, ' ').trim();
+	const found = new Map<number, { id: number; title: string; suburb: string | null; status: string }>();
+
+	if (words) {
+		let q = supabase
+			.from('listings')
+			.select('id, title, suburb, status')
+			.eq('type', l.type)
+			.gte('created_at', since)
+			.ilike('title', `%${words}%`);
+		if (l.suburb) q = q.ilike('suburb', String(l.suburb));
+		const { data } = await q.limit(3);
+		for (const r of data ?? []) found.set(r.id, r);
+	}
+	for (const [col, value] of [['contact_phone', l.contact_phone], ['contact_email', l.contact_email]] as const) {
+		if (!value) continue;
+		const { data } = await supabase
+			.from('listing_private')
+			.select('listing_id, listings!inner(id, title, suburb, status, type, created_at)')
+			.eq(col, String(value))
+			.eq('listings.type', l.type)
+			.gte('listings.created_at', since)
+			.limit(3);
+		for (const r of data ?? []) {
+			const x = r.listings as unknown as { id: number; title: string; suburb: string | null; status: string };
+			found.set(x.id, x);
+		}
+	}
+	return [...found.values()].slice(0, 3);
+}
