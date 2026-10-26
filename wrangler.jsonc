@@ -12,5 +12,12 @@
 	"vars": {
 		"PUBLIC_SUPABASE_URL": "https://anmuomzzagytuxhcsysm.supabase.co",
 		"PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_hMEuwLY-T4lijg4a0FnJjg_upmYAOGS"
+	},
+	// Preview builds (non-main branches) use the same public values: there is one Supabase project.
+	"previews": {
+		"vars": {
+			"PUBLIC_SUPABASE_URL": "https://anmuomzzagytuxhcsysm.supabase.co",
+			"PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_hMEuwLY-T4lijg4a0FnJjg_upmYAOGS"
+		}
 	}
 }

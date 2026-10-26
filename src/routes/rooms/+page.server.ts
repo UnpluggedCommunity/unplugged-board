@@ -1,7 +1,11 @@
-import { loadBoard, readFilters } from '$lib/server/listings';
+import { loadBoard, readFilters, savedIds } from '$lib/server/listings';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const filters = readFilters(url);
-	return { origin: url.origin, filters, listings: await loadBoard(locals.supabase, 'room', filters) };
+	const [listings, saved] = await Promise.all([
+		loadBoard(locals.supabase, 'room', filters),
+		savedIds(locals.supabase, await locals.getMe())
+	]);
+	return { origin: url.origin, filters, listings, saved };
 };

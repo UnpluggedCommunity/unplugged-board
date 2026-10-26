@@ -11,6 +11,7 @@ export interface BoardFilters {
 	posted: string;
 	type: string;
 	sort: string;
+	q: string;
 }
 
 export function readFilters(url: URL): BoardFilters {
@@ -22,7 +23,8 @@ export function readFilters(url: URL): BoardFilters {
 		max: p.get('max') ?? '',
 		posted: p.get('posted') ?? '',
 		type: p.get('rt') ?? '',
-		sort: p.get('sort') ?? 'newest'
+		sort: p.get('sort') ?? 'newest',
+		q: (p.get('q') ?? '').slice(0, 60)
 	};
 }
 
@@ -35,6 +37,10 @@ export async function loadBoard(supabase: SupabaseClient, type: ListingType, f: 
 		.eq('type', type)
 		.eq('status', 'published')
 		.gt('expires_at', new Date().toISOString());
+
+	// Free-text search on title, suburb and summary (PostgREST "or" syntax — strip its special chars)
+	const term = f.q.replace(/[%,()*\\.:"]/g, ' ').trim();
+	if (term) q = q.or(`title.ilike.*${term}*,suburb.ilike.*${term}*,summary.ilike.*${term}*`);
 
 	const zones = f.zone ? zonesForFilter(f.zone) : [];
 	if (zones.length) q = q.in('zone', zones);
@@ -114,4 +120,11 @@ export async function zoneForSuburb(supabase: SupabaseClient, suburb: string | n
 		.eq('suburb', suburb.trim().toLowerCase())
 		.maybeSingle();
 	return (data?.zone as string | undefined) ?? null;
+}
+
+/** Ids of the listings the user has saved (empty for visitors). */
+export async function savedIds(supabase: SupabaseClient, me: App.Me | null): Promise<number[]> {
+	if (!me) return [];
+	const { data } = await supabase.from('saved_listings').select('listing_id').eq('user_id', me.id);
+	return (data ?? []).map((r) => r.listing_id as number);
 }

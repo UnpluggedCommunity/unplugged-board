@@ -15,7 +15,12 @@
 	--font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 	--font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-	--radius: 14px;
+	--surface-3: #26231f;
+	--gold-soft: rgba(245, 194, 122, 0.12);
+	--red-glow: rgba(228, 0, 43, 0.35);
+	--nav-h: 64px;
+
+	--radius: 18px;
 	--gutter: 16px;
 	--max: 760px;
 	color-scheme: dark;
@@ -232,10 +237,87 @@ input[type='checkbox'] {
 }
 
 .card {
-	background: var(--surface);
+	background: linear-gradient(180deg, #171615 0%, var(--surface) 100%);
 	border: 1px solid var(--line);
 	border-radius: var(--radius);
 	padding: 16px;
+}
+
+.page-title {
+	font-family: var(--font-display);
+	font-weight: 400;
+	text-transform: uppercase;
+	font-size: 44px;
+	line-height: 1;
+	letter-spacing: 0.005em;
+	margin: 0;
+}
+
+.section-label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0 0 10px;
+	font: 600 12px/1.2 var(--font-mono);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--gold);
+}
+
+.stack {
+	display: grid;
+	gap: 14px;
+}
+
+.icon-btn {
+	display: inline-grid;
+	place-items: center;
+	width: 40px;
+	height: 40px;
+	border-radius: 999px;
+	border: 1px solid var(--line);
+	background: var(--surface-2);
+	color: var(--cream);
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+}
+.icon-btn.on {
+	color: var(--gold);
+	border-color: #4a3b26;
+	background: var(--gold-soft);
+}
+
+/* Selectable chips (checkbox/radio styled as pills) */
+.choice {
+	position: relative;
+	display: inline-flex;
+}
+.choice input {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+.choice span {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 14px;
+	border-radius: 999px;
+	border: 1px solid var(--line);
+	background: var(--surface);
+	font-size: 14px;
+	cursor: pointer;
+	user-select: none;
+}
+.choice input:checked + span {
+	background: var(--gold);
+	border-color: var(--gold);
+	color: #1a1208;
+	font-weight: 600;
+}
+.choice input:focus-visible + span {
+	outline: 2px solid var(--gold);
+	outline-offset: 2px;
 }
 
 .notice {

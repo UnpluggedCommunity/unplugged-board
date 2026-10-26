@@ -10,6 +10,29 @@ Mobile-first, in inglese per gli utenti, gratis da far girare.
 
 ---
 
+## Cosa possono fare i membri
+
+1. **Login con Google** (bottone in alto a destra o tab **Me**).
+2. **Me → Job profile**: 5 passaggi brevi (dati, visto e obiettivi, patente e ticket, esperienze,
+   inglese e punti di forza). Si compila **una volta sola** e si aggiorna quando si vuole.
+3. **Me → My CVs**: fino a 3 CV (PDF, max 2 MB), ognuno con le categorie per cui va bene
+   (es. "Hospitality CV"). Sono privati: li vede solo il proprietario.
+4. Su un annuncio di lavoro: **Apply with Unplugged** →
+   - sceglie il CV (il sito propone quello adatto alla categoria del lavoro);
+   - **Write it for me**: l'AI scrive email (o messaggio breve) usando solo i dati del profilo;
+   - **Send from my Gmail**: l'email parte **dalla Gmail del membro** con il CV allegato in automatico
+     (la prima volta Google chiede il permesso di *solo invio*); la ritrova nella sua cartella "Inviati" e
+     le risposte arrivano a lui. In alternativa: **Open email app** (allega il CV a mano).
+   - Se l'annuncio ha solo un telefono: messaggio pronto su **WhatsApp** o **SMS**, poi
+     **Then send my CV** per mandare il PDF nella stessa chat.
+   - Se c'è solo un link: copia della cover letter + apertura del sito dell'annuncio.
+5. **Me → Applications**: lo storico delle candidature. **Saved**: gli annunci salvati col segnalibro.
+
+Limiti: 15 bozze AI al giorno e 10 candidature via Gmail al giorno per membro; una sola email per
+annuncio, e solo all'indirizzo di contatto dell'annuncio (nessuno può usare il sito per scrivere ad altri).
+
+---
+
 ## Guida per lo staff
 
 ### Caricare un annuncio (oggi: con "Paste JSON")
@@ -63,11 +86,15 @@ Nella pagina **Staff**:
 Jobs 10 giorni · Rooms 14 giorni · Marketplace 30 giorni. Gli annunci scaduti spariscono da soli
 dalla bacheca. Se metti una data troppo vecchia il form ti avvisa che l'annuncio sarebbe già scaduto.
 
-### Cambiare il Community Access Code (solo Admin)
+### Community Access Code (solo Admin)
 
-**Staff → Admin → Community Access Code** → scrivi il nuovo codice → **Change**.
-Da quel momento **tutti i membri** (non lo staff) devono reinserire il codice nuovo: condividilo nei
-gruppi WhatsApp. Il codice non distingue maiuscole/minuscole.
+All'inizio il codice è **spento**: chiunque faccia login con Google vede i contatti (i visitatori
+non loggati no).
+
+- **Attivarlo o cambiarlo:** **Staff → Admin → Community Access Code** → scrivi il codice →
+  **Set code** / **Change**. Da quel momento **tutti i membri** (non lo staff) devono inserire il
+  codice: condividilo nei gruppi WhatsApp. Non distingue maiuscole/minuscole.
+- **Spegnerlo di nuovo:** **Turn the code off**.
 
 ### Aggiungere o togliere staff (solo Admin)
 
@@ -93,7 +120,8 @@ Tutto gratuito, nessuna carta di credito necessaria (tranne il dominio).
 1. Crea un account su [supabase.com](https://supabase.com) → **New project**
    - Name: `unplugged-board` · Region: **Sydney (ap-southeast-2)** · salva la password del database.
 2. **SQL Editor** → incolla `supabase/migrations/0001_init.sql` → **Run**.
-   Poi incolla `supabase/migrations/0002_suburb_zones.sql` → **Run**.
+   Poi, uno alla volta, `0002_suburb_zones.sql`, `0003_optional_access_code.sql` e
+   `0004_profiles_applications.sql` → **Run**.
 3. Sempre nel SQL Editor, rendi te stesso admin (metti la tua email Google):
    ```sql
    insert into staff_invites (email, role) values ('tua.email@gmail.com', 'admin');
@@ -110,8 +138,8 @@ Tutto gratuito, nessuna carta di credito necessaria (tranne il dominio).
 4. Copia **Client ID** e **Client secret** → Supabase → **Authentication → Sign In / Providers →
    Google** → abilita e incolla.
 5. Supabase → **Authentication → URL Configuration**:
-   - Site URL: l'indirizzo del sito (es. `https://unpluggedwa.com`)
-   - Redirect URLs: `https://unpluggedwa.com/auth/callback`, l'indirizzo `*.workers.dev` del sito
+   - Site URL: l'indirizzo del sito (es. `https://unplugged-au.com`)
+   - Redirect URLs: `https://unplugged-au.com/auth/callback`, l'indirizzo `*.workers.dev` del sito
      seguito da `/auth/callback`, e `http://localhost:5173/auth/callback`.
 
 ### 3. Cloudflare (hosting)
@@ -123,7 +151,36 @@ Tutto gratuito, nessuna carta di credito necessaria (tranne il dominio).
    - Build command: `npm run build` · Deploy command: `npx wrangler deploy`
 4. Ogni modifica su GitHub (branch `main`) viene pubblicata da sola.
 
-### 4. Dominio
+### 4. AI e invio email (chiavi segrete)
+
+Le chiavi segrete **non vanno mai nel codice**: si mettono in Cloudflare → **Workers & Pages →
+unplugged-board → Settings → Variables and Secrets → Add** (tipo *Secret*).
+
+| Nome | Da dove | A cosa serve |
+|---|---|---|
+| `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com) → *Get API key* (progetto **senza** fatturazione) | Bozze delle candidature (e in Fase 1b la lettura degli screenshot) |
+| `GEMINI_MODEL` | facoltativo, default `gemini-3.5-flash-lite` | Cambiare modello senza toccare il codice |
+| `GOOGLE_CLIENT_ID` | Google Cloud → Google Auth Platform → **Clients** → il client "Unplugged Board" | "Send from my Gmail" |
+| `GOOGLE_CLIENT_SECRET` | stesso client (lo stesso che avete incollato in Supabase) | "Send from my Gmail" |
+
+Senza queste chiavi il sito funziona lo stesso: la bozza viene creata con un modello semplice (senza AI)
+e l'invio avviene dall'app email del membro.
+
+**Invio dalla Gmail — configurazione Google (una volta):**
+1. Google Cloud → **APIs & Services → Library** → cerca **Gmail API** → **Enable**.
+2. **Google Auth Platform → Clients** → client "Unplugged Board" → **Authorized redirect URIs** → aggiungi
+   `https://unplugged-au.com/auth/gmail/callback` (e, per le prove, l'indirizzo `*.workers.dev` + `/auth/gmail/callback`).
+3. **Google Auth Platform → Data Access → Add or remove scopes** → aggiungi `.../auth/gmail.send`.
+4. **Branding**: home page `https://unplugged-au.com/about`, privacy `https://unplugged-au.com/privacy`,
+   authorized domain `unplugged-au.com`. Poi **Audience → Publish app** e **Verification Center → verifica**
+   (testi pronti in [`docs/google-verification.md`](docs/google-verification.md)).
+5. Finché Google non approva: il permesso Gmail funziona per i primi 100 utenti (con l'avviso "app non
+   verificata"); gli altri usano "Open email app". Login e resto del sito funzionano per tutti.
+
+**Attenzione (free tier Gemini):** Google può usare i dati inviati per migliorare i suoi prodotti e
+farli leggere a revisori umani. Per questo all'AI non mandiamo mai telefono, email né il file del CV.
+
+### 5. Dominio
 
 Cloudflare → **Domain Registration → Register domains** (prezzo di costo, ~US$11/anno per un `.com`).
 Poi **Workers & Pages → unplugged-board → Settings → Domains & Routes → Add → Custom domain**.
@@ -145,6 +202,10 @@ npm run check          # controllo errori
 | `src/lib/constants.ts` | Zone, categorie, durate |
 | `src/lib/fields.ts` | Tutti i campi degli annunci (form, Paste JSON, AI) |
 | `src/lib/format.ts` | Formattazione prezzi/date e messaggio WhatsApp |
+| `src/lib/profile.ts` | Campi del profilo lavoro dei membri |
+| `src/lib/server/ai.ts` | Unico punto che parla con l'AI (Gemini): per cambiare provider si tocca solo questo |
+| `src/lib/server/application.ts` | Prompt e logica delle email di candidatura |
+| `src/lib/server/gmail.ts` | Invio delle candidature dalla Gmail del membro (permesso `gmail.send`) |
 | `supabase/migrations/` | Database, regole di accesso, tabella zone |
 | `extraction-prompt.md` | Il prompt di estrazione per l'AI |
 

@@ -7,8 +7,8 @@
 <section class="wrap narrow">
 	<h1 class="display">Log in</h1>
 	<p>
-		Everyone can browse the board. To see <strong>contacts and original posts</strong>, log in and enter
-		the Community Access Code shared in the Unplugged WhatsApp groups.
+		Everyone can browse the board. To see <strong>contacts and original posts</strong>, log in with
+		Google.
 	</p>
 	{#if data.error || form?.message}
 		<p class="notice error">{form?.message ?? 'Login failed. Please try again.'}</p>
