@@ -51,16 +51,55 @@
 	let formKey = $state(0);
 	const initial = $derived(toFormValues(type, {}));
 
-	async function addFiles() {
-		const picked = [...(input?.files ?? [])].slice(0, MAX - files.length);
+	let dragging = $state(false);
+
+	/** From the file picker, drag & drop, or Ctrl+V. */
+	async function addFiles(list?: FileList | File[] | null) {
+		const source = list ?? input?.files ?? [];
+		const picked = [...source].filter((f) => f.type.startsWith('image/')).slice(0, MAX - files.length);
 		if (input) input.value = '';
-		if (!picked.length) return;
+		if (!picked.length || items) return;
 		preparing = true;
 		const ready = await Promise.all(picked.map(prepareForAi));
 		files = [...files, ...picked];
 		aiImages = [...aiImages, ...ready];
 		previews = [...previews, ...ready.map((b) => URL.createObjectURL(b))];
 		preparing = false;
+	}
+
+	function onDrop(e: DragEvent) {
+		e.preventDefault();
+		dragging = false;
+		addFiles(e.dataTransfer?.files);
+	}
+
+	/** Paste screenshots straight from the clipboard (Win+Shift+S / Cmd+Ctrl+Shift+4, then Ctrl/Cmd+V). */
+	function onPaste(e: ClipboardEvent) {
+		const target = e.target as HTMLElement | null;
+		if (target?.closest('input, textarea')) return;
+		const pasted = [...(e.clipboardData?.items ?? [])]
+			.filter((it) => it.kind === 'file' && it.type.startsWith('image/'))
+			.map((it) => it.getAsFile())
+			.filter((f): f is File => !!f)
+			.map((f, i) => new File([f], `pasted-${Date.now()}-${i}.png`, { type: f.type }));
+		if (pasted.length) {
+			e.preventDefault();
+			addFiles(pasted);
+		}
+	}
+
+	/** Move an image one step left/right (order matters: a post's screenshots, then its photos). */
+	function move(i: number, d: -1 | 1) {
+		const j = i + d;
+		if (j < 0 || j >= files.length) return;
+		const swap = <T,>(arr: T[]) => {
+			const a = [...arr];
+			[a[i], a[j]] = [a[j], a[i]];
+			return a;
+		};
+		files = swap(files);
+		aiImages = swap(aiImages);
+		previews = swap(previews);
 	}
 
 	function removeAt(i: number) {
@@ -168,12 +207,27 @@
 
 <svelte:head><title>New listing · Staff</title></svelte:head>
 
-<section class="wrap page">
+<svelte:window onpaste={onPaste} />
+
+<section class="wrap page wide">
 	<a class="mono back" href="/staff"><Icon name="back" size={16} />Staff</a>
 	<h1 class="page-title">New listings</h1>
 
 	<!-- Quick Add -->
-	<div class="quick card">
+	<div
+		class="quick card"
+		class:dragging
+		role="region"
+		aria-label="Quick Add"
+		ondragover={(e) => {
+			e.preventDefault();
+			if (!items) dragging = true;
+		}}
+		ondragleave={(e) => {
+			if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) dragging = false;
+		}}
+		ondrop={onDrop}
+	>
 		<h2 class="section-label"><Icon name="sparkles" size={15} />Quick Add with AI</h2>
 		<p class="muted small">
 			Add <strong>screenshots</strong> of Facebook posts, employers' <strong>flyers</strong> and real
@@ -194,7 +248,13 @@
 					<figure class:unused={unused.includes(i + 1)}>
 						<img {src} alt="Image {i + 1}" />
 						<span class="num mono">{i + 1}</span>
-						{#if !items}<button type="button" class="x" aria-label="Remove image {i + 1}" onclick={() => removeAt(i)}><Icon name="x" size={14} /></button>{/if}
+						{#if !items}
+							<button type="button" class="x" aria-label="Remove image {i + 1}" onclick={() => removeAt(i)}><Icon name="x" size={14} /></button>
+							<div class="order">
+								<button type="button" aria-label="Move image {i + 1} left" disabled={i === 0} onclick={() => move(i, -1)}><Icon name="back" size={14} /></button>
+								<button type="button" aria-label="Move image {i + 1} right" disabled={i === files.length - 1} onclick={() => move(i, 1)}><Icon name="next" size={14} /></button>
+							</div>
+						{/if}
 					</figure>
 				{/each}
 			</div>
@@ -203,9 +263,12 @@
 		{#if !items}
 			{#if files.length < MAX}
 				<label class="drop">
-					<input bind:this={input} type="file" accept="image/*" multiple onchange={addFiles} />
+					<input bind:this={input} type="file" accept="image/*" multiple onchange={() => addFiles()} />
 					<Icon name="upload" size={24} />
-					<span>{preparing ? 'Preparing…' : files.length ? `${files.length}/${MAX} — tap to add more` : 'Tap to choose images from your gallery'}</span>
+					<span class="touch-only">{preparing ? 'Preparing…' : files.length ? `${files.length}/${MAX} — tap to add more` : 'Tap to choose images from your gallery'}</span>
+					<span class="desk-only">
+						{preparing ? 'Preparing…' : files.length ? `${files.length}/${MAX} — drop, paste or click to add more` : 'Drag images here, paste with Ctrl+V, or click to choose'}
+					</span>
 				</label>
 			{/if}
 			<div class="row">
@@ -333,6 +396,58 @@
 		display: grid;
 		gap: 14px;
 	}
+	/* Staff work mostly from a computer: use the width */
+	.wide {
+		max-width: 1180px;
+	}
+	.quick.dragging {
+		outline: 2px dashed var(--gold);
+		outline-offset: 4px;
+	}
+	.desk-only {
+		display: none;
+	}
+	@media (hover: hover) and (pointer: fine) {
+		.desk-only {
+			display: inline;
+		}
+		.touch-only {
+			display: none;
+		}
+	}
+	.order {
+		position: absolute;
+		left: 4px;
+		right: 4px;
+		bottom: 4px;
+		display: flex;
+		justify-content: space-between;
+	}
+	.order button {
+		display: grid;
+		place-items: center;
+		width: 26px;
+		height: 26px;
+		border-radius: 50%;
+		border: 0;
+		background: rgba(0, 0, 0, 0.75);
+		color: var(--cream);
+		cursor: pointer;
+	}
+	.order button:disabled {
+		visibility: hidden;
+	}
+	@media (min-width: 1000px) {
+		.results {
+			grid-template-columns: 1fr 1fr;
+			align-items: start;
+		}
+		.results > h2,
+		.results > p,
+		.results > .sticky-actions {
+			grid-column: 1 / -1;
+		}
+	}
 	.back {
 		display: inline-flex;
 		align-items: center;
@@ -368,7 +483,7 @@
 	}
 	.grid-shots {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
 		gap: 8px;
 	}
 	figure {

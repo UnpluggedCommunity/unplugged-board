@@ -37,10 +37,14 @@ annuncio, e solo all'indirizzo di contatto dell'annuncio (nessuno può usare il 
 
 ### Caricare annunci (Quick Add con screenshot)
 
-1. Dal telefono: **Staff** → **New listings — from screenshots**.
-2. Tocca il riquadro tratteggiato e scegli dalla galleria **fino a 24 immagini alla volta**, anche di
-   annunci diversi: screenshot dei post Facebook, locandine, e foto vere delle stanze.
-   **Mettile in ordine**: gli screenshot di un post, poi le sue foto, poi il post successivo.
+1. Dal computer (consigliato) o dal telefono: **Staff** → **New listings — from screenshots**.
+2. Aggiungi **fino a 24 immagini alla volta**, anche di annunci diversi (screenshot dei post Facebook,
+   locandine, foto vere delle stanze):
+   - **dal computer**: trascinale nel riquadro, oppure fai lo screenshot con **Win+Shift+S**
+     (Mac: **Cmd+Ctrl+Shift+4**) e incollalo con **Ctrl+V** (Mac: **Cmd+V**) — uno dopo l'altro;
+   - **dal telefono**: tocca il riquadro e scegli dalla galleria.
+   **Mettile in ordine**: gli screenshot di un post, poi le sue foto, poi il post successivo. Puoi
+   spostare un'immagine con le frecce ‹ › e toglierla con la ×.
 3. **Read with AI** (fino a un minuto). L'AI capisce quanti annunci ci sono, unisce gli screenshot dello
    stesso post e attacca le foto alla stanza giusta.
 4. Compare una **card per ogni annuncio trovato**, con per ognuna: Publish / Draft / Skip.
