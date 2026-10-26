@@ -35,24 +35,22 @@ annuncio, e solo all'indirizzo di contatto dell'annuncio (nessuno può usare il 
 
 ## Guida per lo staff
 
-### Caricare un annuncio (Quick Add con screenshot)
+### Caricare annunci (Quick Add con screenshot)
 
-1. Dal telefono: **Staff** (in alto) → **+ New listing — from screenshots**.
-2. Nel riquadro **Quick Add**: lascia **Auto-detect** (o scegli Job / Room) e tocca il riquadro
-   tratteggiato per aggiungere gli **screenshot** del post Facebook (anche 2–3 se è lungo) oppure la
-   **locandina** del datore di lavoro. Max 6 immagini.
-3. **Read with AI** → in circa 10 secondi il form si compila da solo.
-4. Controlla:
-   - i campi segnati **· check** (l'AI non era sicura);
-   - il riquadro **⚠️ Check before publishing** (possibili truffe: bond prima di vedere la stanza,
-     prezzi troppo bassi, pagamenti strani…);
-   - il riquadro **Possible duplicate** (un annuncio simile è già stato caricato negli ultimi 30 giorni).
-5. Per stanze e oggetti aggiungi le **foto vere** nella sezione **Photos** (non gli screenshot): vengono
-   ridimensionate in automatico.
-6. **Publish**.
+1. Dal telefono: **Staff** → **New listings — from screenshots**.
+2. Tocca il riquadro tratteggiato e scegli dalla galleria **fino a 24 immagini alla volta**, anche di
+   annunci diversi: screenshot dei post Facebook, locandine, e foto vere delle stanze.
+   **Mettile in ordine**: gli screenshot di un post, poi le sue foto, poi il post successivo.
+3. **Read with AI** (fino a un minuto). L'AI capisce quanti annunci ci sono, unisce gli screenshot dello
+   stesso post e attacca le foto alla stanza giusta.
+4. Compare una **card per ogni annuncio trovato**, con per ognuna: Publish / Draft / Skip.
+   - Quelli con ⚠️ (possibile truffa) o **Possible duplicate** sono impostati su **Draft**.
+   - **Edit now** apre l'annuncio nel form completo per correggerlo prima di pubblicare.
+5. **Publish N · draft N** crea tutto. Le bozze le trovi in **Staff → Drafts** (con **Publish all**).
+6. Se l'AI trova un solo annuncio, si apre direttamente il form compilato da controllare.
 
-Gli screenshot non vengono salvati: vanno solo all'AI. Se l'AI non risponde (quota gratuita finita),
-compila a mano oppure usa **Paste JSON** con il Claude Project (vedi sotto).
+A ogni pubblicazione il sito crea l'**immagine di anteprima** dell'annuncio per WhatsApp (titolo, paga,
+zona, logo). Gli screenshot non vengono mai salvati: vanno solo all'AI.
 
 **Piano B — Claude Project:** su claude.ai crea un Project "Unplugged Board" e incolla nelle
 *Project instructions* il contenuto di [`extraction-prompt.md`](extraction-prompt.md). Poi incolli lì
@@ -70,6 +68,22 @@ Su ogni scheda (e nella lista Staff) c'è **Copy for WhatsApp**: copia un messag
 | Rooms | Rooms |
 
 **Share** apre direttamente la condivisione del telefono (WhatsApp compreso).
+
+### Riepilogo giornaliero per WhatsApp
+
+**Staff → WhatsApp daily digest**: un messaggio pronto per ogni gruppo (Jobs Board, Farm Jobs, Rooms) con
+tutto quello pubblicato nelle ultime 24 ore. **Copy** o **Share** → incolla nel gruppo.
+
+### Segnalazioni dei membri
+
+Sotto ogni annuncio i membri loggati possono segnalare **"already taken"** o **"looks like a scam"**.
+- Con **2 segnalazioni "taken"** da persone diverse l'annuncio viene **nascosto** in automatico.
+- In **Staff → Reports** decidi: **Keep live** (torna visibile) o **Take down** (archiviato).
+
+### Pulizia automatica
+
+Quando lo staff apre la pagina Staff, il sito archivia gli annunci scaduti da più di 3 giorni e cancella
+le foto di quelli archiviati da più di 30 giorni (per restare nei limiti gratuiti).
 
 ### Moderare
 
@@ -122,7 +136,7 @@ Tutto gratuito, nessuna carta di credito necessaria (tranne il dominio).
    - Name: `unplugged-board` · Region: **Sydney (ap-southeast-2)** · salva la password del database.
 2. **SQL Editor** → incolla `supabase/migrations/0001_init.sql` → **Run**.
    Poi, uno alla volta, `0002_suburb_zones.sql`, `0003_optional_access_code.sql`,
-   `0004_profiles_applications.sql` e `0005_listing_photos.sql` → **Run**.
+   `0004_profiles_applications.sql`, `0005_listing_photos.sql` e `0006_reports.sql` → **Run**.
 3. Sempre nel SQL Editor, rendi te stesso admin (metti la tua email Google):
    ```sql
    insert into staff_invites (email, role) values ('tua.email@gmail.com', 'admin');
@@ -207,6 +221,11 @@ npm run check          # controllo errori
 | `src/lib/server/ai.ts` | Unico punto che parla con l'AI (Gemini): per cambiare provider si tocca solo questo |
 | `src/lib/server/application.ts` | Prompt e logica delle email di candidatura |
 | `src/lib/server/gmail.ts` | Invio delle candidature dalla Gmail del membro (permesso `gmail.send`) |
+| `src/lib/server/extract.ts` | Lettura degli screenshot con l'AI (più annunci per volta) |
+
+**Nota tecnica:** sul piano gratuito Cloudflare concede ~10 ms di calcolo per richiesta. Per questo il
+lavoro pesante (ridimensionare e codificare immagini, costruire l'email con il CV) avviene nel browser;
+il server controlla e inoltra i dati così come sono.
 | `supabase/migrations/` | Database, regole di accesso, tabella zone |
 | `extraction-prompt.md` | Il prompt di estrazione per l'AI |
 

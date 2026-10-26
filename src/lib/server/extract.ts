@@ -5,18 +5,39 @@
  */
 import { FIELDS } from '$lib/fields';
 import type { ListingType } from '$lib/constants';
-import { generateJson, type AiResult } from './ai';
+import { generateJsonWithParts, type AiResult } from './ai';
 
 export interface Extraction {
 	type: ListingType;
 	listing: Record<string, unknown>;
 	uncertain: string[];
 	warnings: string[];
+	/** 1-based image numbers used to read this listing. */
+	screenshots: number[];
+	/** 1-based image numbers that are real photos of this room/item (to publish). */
+	photos: number[];
 }
 
-const SYSTEM = `You extract job and room listings for Unplugged Board, a noticeboard for backpackers in Perth, Western Australia. You receive one or more images of ONE listing: screenshots of a Facebook post (a long post can be split across several screenshots — read them in order as one post) or a flyer/poster made by the employer.
+export interface BatchExtraction {
+	listings: Extraction[];
+	/** Images not used for any listing (blurry, unrelated, photos not matched). */
+	unused: number[];
+}
 
-Rules
+export const MAX_IMAGES = 24;
+
+const SYSTEM = `You extract job and room listings for Unplugged Board, a noticeboard for backpackers in Perth, Western Australia.
+
+You receive several numbered images ("Image 1", "Image 2", …), uploaded in order by the staff. They can be:
+- screenshots of Facebook posts — a long post can be split across several consecutive screenshots;
+- flyers/posters made by an employer;
+- real photos of a room or an item for sale (no text overlay, no Facebook interface).
+
+Step 1 — Group. Work out how many DIFFERENT listings there are. Screenshots belong to the same listing when they continue the same post (same author and time, text continues, same job/room). Never merge two different jobs or rooms into one listing, and never split one post into two.
+Step 2 — Photos. Attach each real photo to the listing it belongs to: usually the room post whose screenshots come right before it, or the one whose screenshot shows the same room. Only jobs never get photos. If you can't tell which room a photo belongs to, don't attach it (put it in "unused") and add a warning to the most likely listing.
+Step 3 — Extract each listing with the rules below. List the image numbers you used in "screenshots" and the attached photos in "photos".
+
+Rules for every listing
 1. Never invent data. If something is not clearly written in the images, use null. A guess is worse than null.
 2. Write everything in clear, simple English, even if the post is in another language.
 3. Money is always AUD, numbers only.
@@ -67,38 +88,73 @@ function listingSchema() {
 	return { type: 'OBJECT', properties };
 }
 
+const INTS = { type: 'ARRAY', items: { type: 'INTEGER' } };
+const STRINGS = { type: 'ARRAY', items: { type: 'STRING' } };
+
 const SCHEMA = {
 	type: 'OBJECT',
 	properties: {
-		type: { type: 'STRING', enum: ['job', 'room'] },
-		listing: listingSchema(),
-		uncertain: { type: 'ARRAY', items: { type: 'STRING' } },
-		warnings: { type: 'ARRAY', items: { type: 'STRING' } }
+		listings: {
+			type: 'ARRAY',
+			items: {
+				type: 'OBJECT',
+				properties: {
+					type: { type: 'STRING', enum: ['job', 'room'] },
+					screenshots: INTS,
+					photos: INTS,
+					listing: listingSchema(),
+					uncertain: STRINGS,
+					warnings: STRINGS
+				},
+				required: ['type', 'screenshots', 'photos', 'listing', 'uncertain', 'warnings']
+			}
+		},
+		unused: INTS
 	},
-	required: ['type', 'listing', 'uncertain', 'warnings']
+	required: ['listings', 'unused']
 };
 
-export async function extractListing(
-	images: { mimeType: string; base64: string }[],
+/**
+ * `parts` is the browser-built JSON fragment with the numbered images
+ * (see src/lib/extract-client.ts); it is passed to the AI untouched.
+ */
+export async function extractListings(
+	parts: ArrayBuffer,
+	imageCount: number,
 	hint: ListingType | null
-): Promise<AiResult<Extraction>> {
+): Promise<AiResult<BatchExtraction>> {
 	const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Perth' });
-	const result = await generateJson<Extraction>({
-		system: SYSTEM,
-		prompt:
-			`Today's date in Perth is ${today}. ` +
-			(hint ? `The staff says this is a ${hint} listing. ` : 'Detect whether this is a job or a room. ') +
-			`Extract the listing from the ${images.length} image(s).`,
-		schema: SCHEMA,
-		images,
-		temperature: 0.1
+	const result = await generateJsonWithParts<BatchExtraction>(
+		{
+			system: SYSTEM,
+			prompt:
+				`Today's date in Perth is ${today}. There are ${imageCount} images. ` +
+				(hint ? `The staff says these are ${hint} listings. ` : 'Each listing can be a job or a room. ') +
+				'Group them and extract every listing.',
+			schema: SCHEMA,
+			temperature: 0.1
+		},
+		parts
+	);
+	if (!result.ok) return result;
+
+	// Sanitise: valid types, image numbers in range, each photo used once, no photos on jobs.
+	const inRange = (n: unknown) => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= imageCount;
+	const taken = new Set<number>();
+	const listings = (Array.isArray(result.data.listings) ? result.data.listings : []).slice(0, 20).map((l) => {
+		const type: ListingType = l.type === 'room' || l.type === 'job' ? l.type : (hint ?? 'job');
+		const photos = type === 'job' ? [] : (Array.isArray(l.photos) ? l.photos : []).filter((n) => inRange(n) && !taken.has(n));
+		photos.forEach((n) => taken.add(n));
+		return {
+			type,
+			listing: l.listing ?? {},
+			uncertain: Array.isArray(l.uncertain) ? l.uncertain : [],
+			warnings: Array.isArray(l.warnings) ? l.warnings : [],
+			screenshots: (Array.isArray(l.screenshots) ? l.screenshots : []).filter(inRange),
+			photos
+		};
 	});
-	if (result.ok) {
-		const d = result.data;
-		if (d.type !== 'job' && d.type !== 'room') d.type = hint ?? 'job';
-		d.listing ??= {};
-		d.uncertain = Array.isArray(d.uncertain) ? d.uncertain : [];
-		d.warnings = Array.isArray(d.warnings) ? d.warnings : [];
-	}
-	return result;
+	const used = new Set(listings.flatMap((l) => [...l.screenshots, ...l.photos]));
+	const unused = Array.from({ length: imageCount }, (_, i) => i + 1).filter((n) => !used.has(n));
+	return { ok: true, data: { listings, unused } };
 }

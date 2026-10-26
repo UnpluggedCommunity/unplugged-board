@@ -13,7 +13,6 @@ interface JsonRequest {
 	prompt: string;
 	/** OpenAPI-style schema (Gemini responseSchema). */
 	schema: Record<string, unknown>;
-	images?: { mimeType: string; base64: string }[];
 	temperature?: number;
 }
 
@@ -22,30 +21,40 @@ const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 export const aiConfigured = () => Boolean(env.GEMINI_API_KEY);
 
-export async function generateJson<T>(req: JsonRequest): Promise<AiResult<T>> {
+/** Text-only request (small: built in memory). */
+export function generateJson<T>(req: JsonRequest): Promise<AiResult<T>> {
+	return generateJsonWithParts<T>(req, null);
+}
+
+/**
+ * Request with extra content parts (images) that are ALREADY serialised as JSON by the
+ * browser: `{"text":"Image 1"},{"inline_data":{…}},…` without brackets. The bytes are
+ * passed through untouched, so the Worker does no per-byte work on large uploads
+ * (Workers Free has a ~10 ms CPU budget per request).
+ */
+export async function generateJsonWithParts<T>(
+	req: JsonRequest,
+	extraParts: ArrayBuffer | null
+): Promise<AiResult<T>> {
 	const key = env.GEMINI_API_KEY;
 	if (!key) return { ok: false, reason: 'not_configured' };
 	const model = env.GEMINI_MODEL || DEFAULT_MODEL;
 
-	const parts: Record<string, unknown>[] = [{ text: req.prompt }];
-	for (const img of req.images ?? []) {
-		parts.push({ inline_data: { mime_type: img.mimeType, data: img.base64 } });
-	}
+	const head =
+		`{"system_instruction":{"parts":[{"text":${JSON.stringify(req.system)}}]},` +
+		`"contents":[{"role":"user","parts":[{"text":${JSON.stringify(req.prompt)}}`;
+	const tail =
+		`]}],"generationConfig":{"responseMimeType":"application/json",` +
+		`"responseSchema":${JSON.stringify(req.schema)},"temperature":${req.temperature ?? 0.5}}}`;
+	const body = extraParts ? new Blob([head, ',', extraParts, tail]) : head + tail;
 
 	let res: Response;
 	try {
-		res = await fetch(`${ENDPOINT}/${model}:generateContent`, {
+		// GEMINI_ENDPOINT: only for local tests against a fake server
+		res = await fetch(`${env.GEMINI_ENDPOINT || ENDPOINT}/${model}:generateContent`, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-			body: JSON.stringify({
-				system_instruction: { parts: [{ text: req.system }] },
-				contents: [{ role: 'user', parts }],
-				generationConfig: {
-					responseMimeType: 'application/json',
-					responseSchema: req.schema,
-					temperature: req.temperature ?? 0.5
-				}
-			})
+			body
 		});
 	} catch (e) {
 		return { ok: false, reason: 'error', detail: String(e) };
@@ -64,7 +73,7 @@ export async function generateJson<T>(req: JsonRequest): Promise<AiResult<T>> {
 		};
 		const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
 		return { ok: true, data: JSON.parse(text) as T };
-	} catch (e) {
+	} catch {
 		return { ok: false, reason: 'error', detail: 'Unreadable AI response' };
 	}
 }

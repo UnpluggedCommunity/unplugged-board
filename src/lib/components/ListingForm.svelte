@@ -3,6 +3,8 @@
 	import { LIFETIME_DAYS, type ListingType } from '$lib/constants';
 	import { fieldsFor, toFormValues, type FormValues } from '$lib/fields';
 	import { compressImage } from '$lib/image';
+	import { listingFromValues, uploadShareCard } from '$lib/publish-client';
+	import { onMount } from 'svelte';
 
 	type Prefill = { listing: Record<string, unknown>; uncertain?: string[]; warnings?: string[] };
 
@@ -12,7 +14,8 @@
 		message = null,
 		editing = false,
 		prefill = null,
-		photos = []
+		photos = [],
+		presetPhotos = []
 	}: {
 		type: ListingType;
 		initial: FormValues;
@@ -20,6 +23,8 @@
 		editing?: boolean;
 		prefill?: Prefill | null;
 		photos?: string[];
+		/** Photos the AI matched to this listing (Quick Add): pre-selected for upload. */
+		presetPhotos?: File[];
 	} = $props();
 
 	// svelte-ignore state_referenced_locally — the form owns its values after the first render
@@ -43,9 +48,13 @@
 	// svelte-ignore state_referenced_locally — applied once when the form is created
 	if (prefill) applyData(prefill);
 
+	onMount(() => {
+		if (presetPhotos.length) preparePhotos(presetPhotos);
+	});
+
 	/** Resize photos in the browser (WebP, max 1200px) before they're uploaded. */
-	async function preparePhotos() {
-		const files = [...(photoInput.files ?? [])].slice(0, 6);
+	async function preparePhotos(given?: File[]) {
+		const files = (given ?? [...(photoInput.files ?? [])]).slice(0, 6);
 		if (!files.length) return;
 		preparing = true;
 		const done = await Promise.all(files.map((f) => compressImage(f, { maxSide: 1200, type: 'image/webp', quality: 0.8 })));
@@ -107,9 +116,15 @@
 	method="POST"
 	action="?/save"
 	enctype="multipart/form-data"
-	use:enhance={() => {
+	use:enhance={({ formData }) => {
 		saving = true;
-		return async ({ update }) => {
+		const publishing = formData.get('intent') !== 'draft';
+		return async ({ result, update }) => {
+			// Published: draw the WhatsApp share card before leaving the page.
+			if (result.type === 'redirect' && publishing) {
+				const id = Number(result.location.split('/').pop());
+				if (id) await uploadShareCard(listingFromValues(type, values, id));
+			}
 			await update({ reset: false });
 			saving = false;
 		};
@@ -139,7 +154,7 @@
 			name="photos"
 			accept="image/*"
 			multiple
-			onchange={preparePhotos}
+			onchange={() => preparePhotos()}
 		/>
 		<span>{preparing ? 'Preparing photos…' : previews.length ? `${previews.length} photo(s) ready — tap to change` : 'Add photos of the room / item (not screenshots), max 6'}</span>
 	</label>
