@@ -35,27 +35,30 @@ annuncio, e solo all'indirizzo di contatto dell'annuncio (nessuno può usare il 
 
 ## Guida per lo staff
 
-### Caricare un annuncio (oggi: con "Paste JSON")
+### Caricare annunci (Quick Add con screenshot)
 
-1. Apri il sito dal telefono → **Staff** (in alto a destra) → **+ New job** oppure **+ New room**.
-2. Fai gli screenshot del post Facebook (anche 2–3 se è lungo).
-3. Apri il **Claude Project "Unplugged Board"** (vedi sotto), incolla gli screenshot e invia.
-   Claude risponde con un blocco JSON: copialo tutto.
-4. Torna sul sito, incolla nel riquadro **Paste JSON** → **Fill the form**.
-5. Controlla i campi evidenziati in arancione (quelli incerti) e gli eventuali ⚠️ avvisi.
-6. Premi **Publish**. Fatto: vieni portato alla scheda pubblicata.
+1. Dal computer (consigliato) o dal telefono: **Staff** → **New listings — from screenshots**.
+2. Aggiungi **fino a 24 immagini alla volta**, anche di annunci diversi (screenshot dei post Facebook,
+   locandine, foto vere delle stanze):
+   - **dal computer**: trascinale nel riquadro, oppure fai lo screenshot con **Win+Shift+S**
+     (Mac: **Cmd+Ctrl+Shift+4**) e incollalo con **Ctrl+V** (Mac: **Cmd+V**) — uno dopo l'altro;
+   - **dal telefono**: tocca il riquadro e scegli dalla galleria.
+   **Mettile in ordine**: gli screenshot di un post, poi le sue foto, poi il post successivo. Puoi
+   spostare un'immagine con le frecce ‹ › e toglierla con la ×.
+3. **Read with AI** (fino a un minuto). L'AI capisce quanti annunci ci sono, unisce gli screenshot dello
+   stesso post e attacca le foto alla stanza giusta.
+4. Compare una **card per ogni annuncio trovato**, con per ognuna: Publish / Draft / Skip.
+   - Quelli con ⚠️ (possibile truffa) o **Possible duplicate** sono impostati su **Draft**.
+   - **Edit now** apre l'annuncio nel form completo per correggerlo prima di pubblicare.
+5. **Publish N · draft N** crea tutto. Le bozze le trovi in **Staff → Drafts** (con **Publish all**).
+6. Se l'AI trova un solo annuncio, si apre direttamente il form compilato da controllare.
 
-> Nella Fase 1b arriva il pulsante per caricare gli screenshot direttamente sul sito (AI Gemini).
-> Il "Paste JSON" resta come piano B.
+A ogni pubblicazione il sito crea l'**immagine di anteprima** dell'annuncio per WhatsApp (titolo, paga,
+zona, logo). Gli screenshot non vengono mai salvati: vanno solo all'AI.
 
-**Creare il Claude Project (una volta sola):** su claude.ai → Projects → Create project
-"Unplugged Board" → nelle *Project instructions* incolla tutto il contenuto di
-[`extraction-prompt.md`](extraction-prompt.md) (dalla riga `You extract job and room listings…` in giù).
-Sostituisci `{{TODAY}}` con "the date of today" oppure scrivi la data nel messaggio quando carichi gli
-screenshot.
-
-**Privacy:** prima di caricare, se possibile ritaglia via foto profilo e nomi che non servono.
-Gli screenshot non vengono mai salvati sul sito.
+**Piano B — Claude Project:** su claude.ai crea un Project "Unplugged Board" e incolla nelle
+*Project instructions* il contenuto di [`extraction-prompt.md`](extraction-prompt.md). Poi incolli lì
+gli screenshot, copi il JSON che risponde e lo incolli in **Paste JSON** → **Fill the form**.
 
 ### Pubblicare su WhatsApp
 
@@ -69,6 +72,22 @@ Su ogni scheda (e nella lista Staff) c'è **Copy for WhatsApp**: copia un messag
 | Rooms | Rooms |
 
 **Share** apre direttamente la condivisione del telefono (WhatsApp compreso).
+
+### Riepilogo giornaliero per WhatsApp
+
+**Staff → WhatsApp daily digest**: un messaggio pronto per ogni gruppo (Jobs Board, Farm Jobs, Rooms) con
+tutto quello pubblicato nelle ultime 24 ore. **Copy** o **Share** → incolla nel gruppo.
+
+### Segnalazioni dei membri
+
+Sotto ogni annuncio i membri loggati possono segnalare **"already taken"** o **"looks like a scam"**.
+- Con **2 segnalazioni "taken"** da persone diverse l'annuncio viene **nascosto** in automatico.
+- In **Staff → Reports** decidi: **Keep live** (torna visibile) o **Take down** (archiviato).
+
+### Pulizia automatica
+
+Quando lo staff apre la pagina Staff, il sito archivia gli annunci scaduti da più di 3 giorni e cancella
+le foto di quelli archiviati da più di 30 giorni (per restare nei limiti gratuiti).
 
 ### Moderare
 
@@ -120,8 +139,8 @@ Tutto gratuito, nessuna carta di credito necessaria (tranne il dominio).
 1. Crea un account su [supabase.com](https://supabase.com) → **New project**
    - Name: `unplugged-board` · Region: **Sydney (ap-southeast-2)** · salva la password del database.
 2. **SQL Editor** → incolla `supabase/migrations/0001_init.sql` → **Run**.
-   Poi, uno alla volta, `0002_suburb_zones.sql`, `0003_optional_access_code.sql` e
-   `0004_profiles_applications.sql` → **Run**.
+   Poi, uno alla volta, `0002_suburb_zones.sql`, `0003_optional_access_code.sql`,
+   `0004_profiles_applications.sql`, `0005_listing_photos.sql` e `0006_reports.sql` → **Run**.
 3. Sempre nel SQL Editor, rendi te stesso admin (metti la tua email Google):
    ```sql
    insert into staff_invites (email, role) values ('tua.email@gmail.com', 'admin');
@@ -206,6 +225,11 @@ npm run check          # controllo errori
 | `src/lib/server/ai.ts` | Unico punto che parla con l'AI (Gemini): per cambiare provider si tocca solo questo |
 | `src/lib/server/application.ts` | Prompt e logica delle email di candidatura |
 | `src/lib/server/gmail.ts` | Invio delle candidature dalla Gmail del membro (permesso `gmail.send`) |
+| `src/lib/server/extract.ts` | Lettura degli screenshot con l'AI (più annunci per volta) |
+
+**Nota tecnica:** sul piano gratuito Cloudflare concede ~10 ms di calcolo per richiesta. Per questo il
+lavoro pesante (ridimensionare e codificare immagini, costruire l'email con il CV) avviene nel browser;
+il server controlla e inoltra i dati così come sono.
 | `supabase/migrations/` | Database, regole di accesso, tabella zone |
 | `extraction-prompt.md` | Il prompt di estrazione per l'AI |
 

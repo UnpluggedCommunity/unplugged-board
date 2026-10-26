@@ -40,7 +40,7 @@
 			origin: string;
 			me: App.Me | null;
 		};
-		form: { removalSent?: boolean; removalError?: string } | null;
+		form: { removalSent?: boolean; removalError?: string; reported?: string; reportError?: string } | null;
 	} = $props();
 
 	const l = $derived(data.listing);
@@ -197,6 +197,30 @@
 				{/if}
 			{/if}
 		</section>
+
+		{#if data.me && live}
+			<div class="report">
+				{#if form?.reported}
+					<p class="notice ok">
+						Thanks! {form.reported === 'taken' ? "If others confirm it's gone, we'll take it down." : 'The staff will check it.'}
+					</p>
+				{:else}
+					<form method="POST" action="?/report" use:enhance>
+						<input type="hidden" name="kind" value="taken" />
+						<button class="btn small ghost">{l.type === 'job' ? 'Job already taken?' : 'Room already taken?'}</button>
+					</form>
+					<details class="suspicious">
+						<summary class="mono">Looks like a scam?</summary>
+						<form method="POST" action="?/report" use:enhance>
+							<input type="hidden" name="kind" value="suspicious" />
+							<label class="field"><span>What's wrong? (optional)</span><input name="note" maxlength="500" placeholder="e.g. asked for bond before viewing" /></label>
+							<button class="btn small danger">Report to staff</button>
+						</form>
+					</details>
+				{/if}
+				{#if form?.reportError}<p class="notice error">{form.reportError}</p>{/if}
+			</div>
+		{/if}
 
 		<details class="removal" id="removal">
 			<summary class="mono">Request removal</summary>
@@ -419,6 +443,25 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 8px;
+	}
+	.report {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px 12px;
+		align-items: center;
+	}
+	.report form {
+		margin: 0;
+	}
+	.suspicious summary {
+		cursor: pointer;
+		color: var(--muted);
+		font-size: 13px;
+	}
+	.suspicious form {
+		display: grid;
+		gap: 10px;
+		margin-top: 10px;
 	}
 	.removal summary {
 		cursor: pointer;

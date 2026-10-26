@@ -5,6 +5,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { jobCategory } from '$lib/constants';
 	import { formatPay, place, timeAgo } from '$lib/format';
+	import { buildMime, textToBase64Url } from '$lib/mime';
 
 	let { data, form } = $props();
 
@@ -27,12 +28,55 @@
 	const ready = $derived(data.missing.length === 0);
 	const isEmail = $derived(data.channel === 'email');
 	const cv = $derived(data.cvs.find((c) => c.id === cvId) ?? null);
-	const sent = $derived(Boolean(form && 'sent' in form && form.sent));
+	let sentTo = $state<string | null>(null);
+	let sendError = $state<string | null>(null);
+	let reconnect = $state(false);
 
 	// The Gmail permission screen is a full-page redirect: keep the draft in this tab meanwhile.
 	const storeKey = $derived(`unplugged-apply-${data.listing.id}`);
 	const gmailDenied = $derived(page.url.searchParams.get('gmail') === 'denied');
-	const needsReconnect = $derived(Boolean(form && 'reconnect' in form && form.reconnect));
+	const needsReconnect = $derived(reconnect);
+
+	/** Build the email + CV here in the browser, the server checks and forwards it to Gmail. */
+	async function sendFromGmail() {
+		if (!cv || !data.recipient) return;
+		sending = true;
+		sendError = null;
+		try {
+			const res = await fetch(`/me/cvs/${cv.id}`);
+			if (!res.ok) throw new Error('cv');
+			const blob = await res.blob();
+			const ext = cv.file_name.split('.').pop() ?? 'pdf';
+			const mail = buildMime({
+				to: data.recipient,
+				subject,
+				text: body,
+				attachment: {
+					name: `${data.profile?.full_name ?? 'CV'} - CV.${ext}`,
+					mimeType: blob.type || 'application/pdf',
+					bytes: new Uint8Array(await blob.arrayBuffer())
+				}
+			});
+			const out = await fetch(`/apply/${data.listing.id}/send?cv=${cv.id}`, {
+				method: 'POST',
+				body: mail,
+				headers: {
+					'content-type': 'message/rfc822',
+					'x-subject': textToBase64Url(subject.slice(0, 200)),
+					'x-body': textToBase64Url(body.slice(0, 3000))
+				}
+			});
+			const result = await out.json().catch(() => ({ ok: false, message: 'Something went wrong.' }));
+			if (result.ok) sentTo = result.to;
+			else {
+				sendError = result.message;
+				reconnect = Boolean(result.reconnect);
+			}
+		} catch {
+			sendError = "Couldn't send — check your connection and try again.";
+		}
+		sending = false;
+	}
 
 	function connectGmail() {
 		try {
@@ -140,12 +184,12 @@
 		</p>
 	{/if}
 
-	{#if sent}
+	{#if sentTo}
 		<div class="done card">
 			<div class="done-icon"><Icon name="check" size={30} stroke={2.4} /></div>
 			<h2 class="display">Application sent</h2>
 			<p class="muted">
-				Sent from your Gmail to <strong>{form && 'to' in form ? form.to : ''}</strong> with your CV attached. You'll find it in your Sent folder, and their reply will come straight to your inbox.
+				Sent from your Gmail to <strong>{sentTo}</strong> with your CV attached. You'll find it in your Sent folder, and their reply will come straight to your inbox.
 			</p>
 			<div class="row">
 				<a class="btn" href="/me/applications">My applications</a>
@@ -250,24 +294,9 @@
 							{cv ? `attached: ${cv.label}` : 'no CV selected'}
 						</p>
 						{#if data.gmailConnected && !needsReconnect}
-							<form
-								method="POST"
-								action="?/send"
-								use:enhance={() => {
-									sending = true;
-									return async ({ update }) => {
-										await update({ reset: false });
-										sending = false;
-									};
-								}}
-							>
-								<input type="hidden" name="subject" value={subject} />
-								<input type="hidden" name="body" value={body} />
-								<input type="hidden" name="cv_id" value={cvId ?? ''} />
-								<button class="btn primary block" disabled={sending || !cv}>
-									<Icon name="send" size={18} />{sending ? 'Sending…' : 'Send from my Gmail'}
-								</button>
-							</form>
+							<button class="btn primary block" onclick={sendFromGmail} disabled={sending || !cv}>
+								<Icon name="send" size={18} />{sending ? 'Sending…' : 'Send from my Gmail'}
+							</button>
 						{:else}
 							<button class="btn primary block" onclick={connectGmail} disabled={!cv}>
 								<Icon name="mail" size={18} />Connect Gmail & send
@@ -278,7 +307,7 @@
 							</p>
 						{/if}
 						{#if gmailDenied}<p class="notice error">Gmail wasn't connected. Try again, or use your email app below.</p>{/if}
-						{#if form && 'message' in form && form.message}<p class="notice error">{form.message}</p>{/if}
+						{#if sendError}<p class="notice error">{sendError}</p>{/if}
 						<details class="alt">
 							<summary class="mono">Send from my email app instead</summary>
 							{@render ownEmail()}

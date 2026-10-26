@@ -77,64 +77,22 @@ export async function handleCallback(url: URL, cookies: Cookies): Promise<{ ok: 
 export const gmailToken = (cookies: Cookies) => cookies.get(TOKEN_COOKIE) ?? null;
 export const forgetGmail = (cookies: Cookies) => cookies.delete(TOKEN_COOKIE, { path: '/' });
 
-// --- MIME -------------------------------------------------------------------
+// --- Sending ----------------------------------------------------------------
 
-const utf8 = (s: string) => new TextEncoder().encode(s);
-
-function base64(bytes: Uint8Array) {
-	let binary = '';
-	for (let i = 0; i < bytes.length; i += 0x8000) {
-		binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-	}
-	return btoa(binary);
-}
-
-const wrap = (b64: string) => b64.replace(/.{1,76}/g, '$&\r\n').trimEnd();
-const header = (s: string) => (/^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${base64(utf8(s))}?=`);
-const asciiName = (s: string) => s.normalize('NFD').replace(/[^\x20-\x7e]/g, '').replace(/["\\]/g, '') || 'CV';
-
-export interface GmailMessage {
-	to: string;
-	subject: string;
-	text: string;
-	attachment?: { name: string; mimeType: string; bytes: Uint8Array };
-}
-
-export async function sendGmail(
+/**
+ * Send a complete RFC 822 message (built in the browser) through the Gmail media-upload
+ * endpoint. The Worker only forwards the bytes.
+ */
+export async function sendRawGmail(
 	token: string,
-	msg: GmailMessage
+	message: ArrayBuffer
 ): Promise<{ ok: true } | { ok: false; error: 'reconnect' | 'quota' | 'failed' }> {
-	const boundary = `unplugged_${crypto.randomUUID()}`;
-	const parts = [
-		`To: ${msg.to}`,
-		`Subject: ${header(msg.subject)}`,
-		'MIME-Version: 1.0',
-		`Content-Type: multipart/mixed; boundary="${boundary}"`,
-		'',
-		`--${boundary}`,
-		'Content-Type: text/plain; charset="UTF-8"',
-		'Content-Transfer-Encoding: base64',
-		'',
-		wrap(base64(utf8(msg.text)))
-	];
-	if (msg.attachment) {
-		const name = asciiName(msg.attachment.name);
-		parts.push(
-			`--${boundary}`,
-			`Content-Type: ${msg.attachment.mimeType}; name="${name}"`,
-			`Content-Disposition: attachment; filename="${name}"`,
-			'Content-Transfer-Encoding: base64',
-			'',
-			wrap(base64(msg.attachment.bytes))
-		);
-	}
-	parts.push(`--${boundary}--`, '');
-	const raw = base64(utf8(parts.join('\r\n'))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-	const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+	// GMAIL_SEND_URL: only for local tests against a fake server
+	const url = env.GMAIL_SEND_URL || 'https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media';
+	const res = await fetch(url, {
 		method: 'POST',
-		headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-		body: JSON.stringify({ raw })
+		headers: { authorization: `Bearer ${token}`, 'content-type': 'message/rfc822' },
+		body: message
 	}).catch(() => null);
 	if (res?.ok) return { ok: true };
 	if (!res) return { ok: false, error: 'failed' };

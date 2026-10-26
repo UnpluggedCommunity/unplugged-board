@@ -25,6 +25,22 @@ export async function loadDetail(event: RequestEvent, type: ListingType) {
 }
 
 export const detailActions = {
+	// "Already taken" / "Looks suspicious" — logged-in users, once per listing and kind.
+	report: async ({ request, locals, params }: RequestEvent) => {
+		const me = await locals.getMe();
+		if (!me) return fail(401, { reportError: 'Log in to report.' });
+		const form = await request.formData();
+		const kind = form.get('kind') === 'suspicious' ? 'suspicious' : 'taken';
+		const note = String(form.get('note') ?? '').trim().slice(0, 500) || null;
+		const { error } = await locals.supabase
+			.from('listing_reports')
+			.insert({ listing_id: Number(params.id), user_id: me.id, kind, note });
+		if (error && error.code !== '23505') {
+			console.error('report', error);
+			return fail(500, { reportError: 'Something went wrong. Please try again.' });
+		}
+		return { reported: kind };
+	},
 	// "Request removal" — open to everyone, including visitors.
 	removal: async ({ request, locals, params }: RequestEvent) => {
 		const form = await request.formData();

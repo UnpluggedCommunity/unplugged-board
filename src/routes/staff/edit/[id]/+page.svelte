@@ -8,7 +8,7 @@
 <section class="wrap page">
 	<a class="mono back" href="/staff">← Staff</a>
 	<h1 class="display">Edit {data.type} #{data.id}</h1>
-	<ListingForm type={data.type} initial={data.initial} message={form?.message} editing />
+	<ListingForm type={data.type} initial={data.initial} photos={data.photos} message={form?.message} editing />
 </section>
 
 <style>
