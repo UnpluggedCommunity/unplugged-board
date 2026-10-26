@@ -22,6 +22,13 @@
 			<img src="/logo-360.webp" srcset="/logo-360.webp 1x, /logo-720.webp 2x" alt="Unplugged" width="126" height="24" />
 			<span class="board mono">BOARD</span>
 		</a>
+		<nav class="topnav" aria-label="Main">
+			{#each nav as n}
+				<a href={n.href} class:on={active(n.match)} aria-current={active(n.match) ? 'page' : undefined}>
+					<Icon name={n.icon} size={17} filled={active(n.match) && n.icon === 'bookmark'} />{n.label}
+				</a>
+			{/each}
+		</nav>
 		<div class="account">
 			{#if data.me?.isStaff}
 				<a class="btn small ghost" href="/staff">Staff</a>
@@ -181,17 +188,39 @@
 		border-radius: 0 0 3px 3px;
 		background: var(--gold);
 	}
+	/* Desktop: navigation moves into the header, the bottom bar disappears */
+	.topnav {
+		display: none;
+	}
 	@media (min-width: 820px) {
+		:global(:root) {
+			--nav-h: 0px;
+		}
 		.tabbar {
-			left: 50%;
-			right: auto;
-			bottom: 16px;
-			width: 420px;
-			transform: translateX(-50%);
-			border: 1px solid var(--line);
+			display: none;
+		}
+		.topnav {
+			display: flex;
+			gap: 4px;
+			margin-left: auto;
+		}
+		.topnav a {
+			display: inline-flex;
+			align-items: center;
+			gap: 7px;
+			padding: 8px 14px;
 			border-radius: 999px;
-			height: var(--nav-h);
-			padding-bottom: 0;
+			color: var(--muted);
+			text-decoration: none;
+			font: 500 15px/1 var(--font-sans);
+		}
+		.topnav a:hover {
+			color: var(--cream);
+			background: var(--surface-2);
+		}
+		.topnav a.on {
+			color: var(--gold);
+			background: var(--gold-soft);
 		}
 	}
 </style>

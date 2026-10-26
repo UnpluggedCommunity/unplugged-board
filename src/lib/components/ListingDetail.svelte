@@ -441,7 +441,7 @@
 	}
 	@media (min-width: 820px) {
 		.actionbar {
-			bottom: calc(var(--nav-h) + 24px);
+			bottom: 0;
 		}
 	}
 	.actionbar-inner {
