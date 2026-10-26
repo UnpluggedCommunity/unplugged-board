@@ -4,7 +4,7 @@
 
 <article class="wrap prose">
 	<h1 class="display">Privacy</h1>
-	<p class="muted">Last updated: October 2026</p>
+	<p class="muted">Last updated: 26 October 2026</p>
 
 	<p>
 		Unplugged is a volunteer-run community for backpackers and expats in Perth, Western Australia. We
@@ -26,7 +26,7 @@
 			jobs (name, contacts, visa, licence, tickets, experience) and up to 3 CV files. Only you can see
 			them.
 		</li>
-		<li><strong>Applications:</strong> the messages you send through the board, so you can find them in "My applications".</li>
+		<li><strong>Applications:</strong> the messages you send through the board (recipient, subject, text, which CV), so you can find them in "My applications".</li>
 	</ul>
 
 	<h2>What we don't do</h2>
@@ -38,9 +38,24 @@
 
 	<h2>Service providers</h2>
 	<p>
-		The site runs on Cloudflare (hosting) and Supabase (database, login and file storage). Emails you
-		send with "Apply with Unplugged" go through Brevo, with your CV attached and your email as the
-		reply address. These providers may process data outside Australia.
+		The site runs on Cloudflare (hosting) and Supabase (database, login and file storage). These
+		providers may process data outside Australia.
+	</p>
+
+	<h2 id="gmail">Google account and Gmail</h2>
+	<p>
+		We use Sign in with Google for your name, email and profile picture. If you choose
+		<strong>Send from my Gmail</strong>, we separately ask for the <code>gmail.send</code> permission and use it
+		only to send the application you reviewed, to the employer of that listing, with the CV you chose. We
+		can't read, search or delete your emails. The access token expires after about an hour and isn't saved
+		in our database. You can revoke access any time at
+		<a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>.
+	</p>
+	<p>
+		Unplugged Board's use and transfer of information received from Google APIs adheres to the
+		<a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>,
+		including the Limited Use requirements. We never use Google user data for advertising, never sell it,
+		and never use it to train AI models.
 	</p>
 
 	<h2 id="ai">AI</h2>
@@ -64,7 +79,8 @@
 	<p>
 		Is a listing about you, or wrong? Open it and tap <strong>Request removal</strong> at the bottom of
 		the page — no account needed. To delete your account or ask what we hold about you, message the
-		Unplugged staff in the WhatsApp Community.
+		Unplugged staff in the WhatsApp Community or email
+		<a href="mailto:hello@unplugged-au.com">hello@unplugged-au.com</a>.
 	</p>
 
 	<h2>Disclaimer</h2>
@@ -90,5 +106,10 @@
 	}
 	li {
 		margin-bottom: 6px;
+	}
+	code {
+		font-family: var(--font-mono);
+		font-size: 14px;
+		color: var(--gold);
 	}
 </style>

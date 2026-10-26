@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { deserialize, enhance } from '$app/forms';
+	import { page } from '$app/state';
 	import Icon from '$lib/components/Icon.svelte';
 	import { jobCategory } from '$lib/constants';
 	import { formatPay, place, timeAgo } from '$lib/format';
@@ -26,6 +28,33 @@
 	const isEmail = $derived(data.channel === 'email');
 	const cv = $derived(data.cvs.find((c) => c.id === cvId) ?? null);
 	const sent = $derived(Boolean(form && 'sent' in form && form.sent));
+
+	// The Gmail permission screen is a full-page redirect: keep the draft in this tab meanwhile.
+	const storeKey = $derived(`unplugged-apply-${data.listing.id}`);
+	const gmailDenied = $derived(page.url.searchParams.get('gmail') === 'denied');
+	const needsReconnect = $derived(Boolean(form && 'reconnect' in form && form.reconnect));
+
+	function connectGmail() {
+		try {
+			sessionStorage.setItem(storeKey, JSON.stringify({ draft, source, subject, body, message, cvId }));
+		} catch {
+			/* private mode: the draft is simply rewritten */
+		}
+		window.location.href = `/auth/gmail/start?next=${encodeURIComponent(`/apply/${data.listing.id}`)}`;
+	}
+
+	onMount(() => {
+		try {
+			const saved = sessionStorage.getItem(storeKey);
+			if (!saved) return;
+			sessionStorage.removeItem(storeKey);
+			const s = JSON.parse(saved);
+			({ draft, source, subject, body, message } = s);
+			cvId = s.cvId ?? cvId;
+		} catch {
+			/* ignore */
+		}
+	});
 
 	/** Australian numbers → international format for wa.me / sms. */
 	const intl = (phone: string) => {
@@ -116,8 +145,7 @@
 			<div class="done-icon"><Icon name="check" size={30} stroke={2.4} /></div>
 			<h2 class="display">Application sent</h2>
 			<p class="muted">
-				We emailed <strong>{form && 'to' in form ? form.to : ''}</strong> with your CV attached. Their reply will
-				come straight to your inbox, and you got a copy too.
+				Sent from your Gmail to <strong>{form && 'to' in form ? form.to : ''}</strong> with your CV attached. You'll find it in your Sent folder, and their reply will come straight to your inbox.
 			</p>
 			<div class="row">
 				<a class="btn" href="/me/applications">My applications</a>
@@ -216,31 +244,43 @@
 				<h2 class="section-label"><span class="n">3</span>Send</h2>
 
 				{#if data.channel === 'email'}
-					{#if data.emailReady}
-						<form
-							method="POST"
-							action="?/send"
-							use:enhance={() => {
-								sending = true;
-								return async ({ update }) => {
-									await update({ reset: false });
-									sending = false;
-								};
-							}}
-						>
-							<input type="hidden" name="subject" value={subject} />
-							<input type="hidden" name="body" value={body} />
-							<input type="hidden" name="cv_id" value={cvId ?? ''} />
-							<p class="muted small">
-								To <strong>{data.recipient}</strong> · replies go to your email · {cv ? `attached: ${cv.label}` : 'no CV selected'}
-							</p>
-							<button class="btn primary block" disabled={sending || !cv}>
-								<Icon name="send" size={18} />{sending ? 'Sending…' : 'Send with my CV'}
+					{#if data.gmailReady}
+						<p class="muted small">
+							To <strong>{data.recipient}</strong> · from your Gmail ({data.me?.email}) ·
+							{cv ? `attached: ${cv.label}` : 'no CV selected'}
+						</p>
+						{#if data.gmailConnected && !needsReconnect}
+							<form
+								method="POST"
+								action="?/send"
+								use:enhance={() => {
+									sending = true;
+									return async ({ update }) => {
+										await update({ reset: false });
+										sending = false;
+									};
+								}}
+							>
+								<input type="hidden" name="subject" value={subject} />
+								<input type="hidden" name="body" value={body} />
+								<input type="hidden" name="cv_id" value={cvId ?? ''} />
+								<button class="btn primary block" disabled={sending || !cv}>
+									<Icon name="send" size={18} />{sending ? 'Sending…' : 'Send from my Gmail'}
+								</button>
+							</form>
+						{:else}
+							<button class="btn primary block" onclick={connectGmail} disabled={!cv}>
+								<Icon name="mail" size={18} />Connect Gmail & send
 							</button>
-						</form>
+							<p class="muted tiny">
+								Google will ask you to let Unplugged <strong>send</strong> emails for you — we can't read your inbox. Then
+								you're back here with everything ready.
+							</p>
+						{/if}
+						{#if gmailDenied}<p class="notice error">Gmail wasn't connected. Try again, or use your email app below.</p>{/if}
 						{#if form && 'message' in form && form.message}<p class="notice error">{form.message}</p>{/if}
 						<details class="alt">
-							<summary class="mono">Send from my own email instead</summary>
+							<summary class="mono">Send from my email app instead</summary>
 							{@render ownEmail()}
 						</details>
 					{:else}

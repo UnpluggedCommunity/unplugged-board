@@ -20,15 +20,16 @@ Mobile-first, in inglese per gli utenti, gratis da far girare.
 4. Su un annuncio di lavoro: **Apply with Unplugged** →
    - sceglie il CV (il sito propone quello adatto alla categoria del lavoro);
    - **Write it for me**: l'AI scrive email (o messaggio breve) usando solo i dati del profilo;
-   - **Send with my CV**: l'email parte da Unplugged con il CV allegato; le risposte del datore di
-     lavoro arrivano direttamente alla mail del membro, che riceve anche una copia.
+   - **Send from my Gmail**: l'email parte **dalla Gmail del membro** con il CV allegato in automatico
+     (la prima volta Google chiede il permesso di *solo invio*); la ritrova nella sua cartella "Inviati" e
+     le risposte arrivano a lui. In alternativa: **Open email app** (allega il CV a mano).
    - Se l'annuncio ha solo un telefono: messaggio pronto su **WhatsApp** o **SMS**, poi
      **Then send my CV** per mandare il PDF nella stessa chat.
    - Se c'è solo un link: copia della cover letter + apertura del sito dell'annuncio.
 5. **Me → Applications**: lo storico delle candidature. **Saved**: gli annunci salvati col segnalibro.
 
-Limiti per proteggere i piani gratuiti: 15 bozze AI al giorno e 10 email al giorno per membro;
-una sola email per annuncio.
+Limiti: 15 bozze AI al giorno e 10 candidature via Gmail al giorno per membro; una sola email per
+annuncio, e solo all'indirizzo di contatto dell'annuncio (nessuno può usare il sito per scrivere ad altri).
 
 ---
 
@@ -137,8 +138,8 @@ Tutto gratuito, nessuna carta di credito necessaria (tranne il dominio).
 4. Copia **Client ID** e **Client secret** → Supabase → **Authentication → Sign In / Providers →
    Google** → abilita e incolla.
 5. Supabase → **Authentication → URL Configuration**:
-   - Site URL: l'indirizzo del sito (es. `https://unpluggedwa.com`)
-   - Redirect URLs: `https://unpluggedwa.com/auth/callback`, l'indirizzo `*.workers.dev` del sito
+   - Site URL: l'indirizzo del sito (es. `https://unplugged-au.com`)
+   - Redirect URLs: `https://unplugged-au.com/auth/callback`, l'indirizzo `*.workers.dev` del sito
      seguito da `/auth/callback`, e `http://localhost:5173/auth/callback`.
 
 ### 3. Cloudflare (hosting)
@@ -159,11 +160,22 @@ unplugged-board → Settings → Variables and Secrets → Add** (tipo *Secret*)
 |---|---|---|
 | `GEMINI_API_KEY` | [aistudio.google.com](https://aistudio.google.com) → *Get API key* (progetto **senza** fatturazione) | Bozze delle candidature (e in Fase 1b la lettura degli screenshot) |
 | `GEMINI_MODEL` | facoltativo, default `gemini-3.5-flash-lite` | Cambiare modello senza toccare il codice |
-| `BREVO_API_KEY` | [brevo.com](https://www.brevo.com) → piano Free → *SMTP & API → API Keys* | Invio delle candidature con CV allegato (300 email/giorno gratis) |
-| `EMAIL_FROM` | un indirizzo del vostro dominio verificato su Brevo, es. `apply@unpluggedwa.com` | Mittente delle candidature ("Nome via Unplugged") |
+| `GOOGLE_CLIENT_ID` | Google Cloud → Google Auth Platform → **Clients** → il client "Unplugged Board" | "Send from my Gmail" |
+| `GOOGLE_CLIENT_SECRET` | stesso client (lo stesso che avete incollato in Supabase) | "Send from my Gmail" |
 
 Senza queste chiavi il sito funziona lo stesso: la bozza viene creata con un modello semplice (senza AI)
 e l'invio avviene dall'app email del membro.
+
+**Invio dalla Gmail — configurazione Google (una volta):**
+1. Google Cloud → **APIs & Services → Library** → cerca **Gmail API** → **Enable**.
+2. **Google Auth Platform → Clients** → client "Unplugged Board" → **Authorized redirect URIs** → aggiungi
+   `https://unplugged-au.com/auth/gmail/callback` (e, per le prove, l'indirizzo `*.workers.dev` + `/auth/gmail/callback`).
+3. **Google Auth Platform → Data Access → Add or remove scopes** → aggiungi `.../auth/gmail.send`.
+4. **Branding**: home page `https://unplugged-au.com/about`, privacy `https://unplugged-au.com/privacy`,
+   authorized domain `unplugged-au.com`. Poi **Audience → Publish app** e **Verification Center → verifica**
+   (testi pronti in [`docs/google-verification.md`](docs/google-verification.md)).
+5. Finché Google non approva: il permesso Gmail funziona per i primi 100 utenti (con l'avviso "app non
+   verificata"); gli altri usano "Open email app". Login e resto del sito funzionano per tutti.
 
 **Attenzione (free tier Gemini):** Google può usare i dati inviati per migliorare i suoi prodotti e
 farli leggere a revisori umani. Per questo all'AI non mandiamo mai telefono, email né il file del CV.
@@ -193,7 +205,7 @@ npm run check          # controllo errori
 | `src/lib/profile.ts` | Campi del profilo lavoro dei membri |
 | `src/lib/server/ai.ts` | Unico punto che parla con l'AI (Gemini): per cambiare provider si tocca solo questo |
 | `src/lib/server/application.ts` | Prompt e logica delle email di candidatura |
-| `src/lib/server/email.ts` | Unico punto che invia email (Brevo) |
+| `src/lib/server/gmail.ts` | Invio delle candidature dalla Gmail del membro (permesso `gmail.send`) |
 | `supabase/migrations/` | Database, regole di accesso, tabella zone |
 | `extraction-prompt.md` | Il prompt di estrazione per l'AI |
 

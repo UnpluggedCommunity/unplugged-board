@@ -2,7 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { missingForApply } from '$lib/profile';
 import { aiConfigured } from '$lib/server/ai';
 import { templateApplication, writeApplication } from '$lib/server/application';
-import { emailConfigured, sendEmail } from '$lib/server/email';
+import { forgetGmail, gmailConfigured, gmailToken, sendGmail } from '$lib/server/gmail';
 import { loadListing } from '$lib/server/listings';
 import { loadCvs, loadJobProfile } from '$lib/server/profile';
 import type { Actions, PageServerLoad } from './$types';
@@ -11,15 +11,6 @@ const AI_DAILY_LIMIT = 15;
 const SEND_DAILY_LIMIT = 10;
 
 type Channel = 'email' | 'phone' | 'link' | 'none';
-
-function toBase64(buffer: ArrayBuffer) {
-	const bytes = new Uint8Array(buffer);
-	let binary = '';
-	for (let i = 0; i < bytes.length; i += 0x8000) {
-		binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-	}
-	return btoa(binary);
-}
 
 async function context(event: { locals: App.Locals; params: { id: string }; url: URL }) {
 	const { locals, params, url } = event;
@@ -64,7 +55,8 @@ export const load: PageServerLoad = async (event) => {
 		cvs: cvs.map(({ id, label, categories, file_name }) => ({ id, label, categories, file_name })),
 		suggestedCv: suggested?.id ?? null,
 		previous: previous?.[0] ?? null,
-		emailReady: emailConfigured(),
+		gmailReady: gmailConfigured(),
+		gmailConnected: Boolean(gmailToken(event.cookies)),
 		aiReady: aiConfigured()
 	};
 };
@@ -103,7 +95,7 @@ export const actions: Actions = {
 		return { draft: templateApplication(profile, listing, contactName), source: 'template' as const };
 	},
 
-	/** Send by email from the platform, with the CV attached. */
+	/** Send from the member's own Gmail, with the CV attached. */
 	send: async (event) => {
 		const { me, listing, contact } = await context(event);
 		const supabase = event.locals.supabase;
@@ -112,14 +104,13 @@ export const actions: Actions = {
 		const body = String(form.get('body') ?? '').trim().slice(0, 5000);
 		const cvId = String(form.get('cv_id') ?? '');
 
+		// Only ever to the listing's own contact — the form can't choose the recipient.
 		const to = contact?.contact_email;
 		if (!to) return fail(400, { message: 'This job has no email address.' });
-		if (!emailConfigured()) return fail(400, { message: 'Sending from Unplugged is not switched on yet.' });
 		if (subject.length < 3 || body.length < 40) return fail(400, { message: 'Write the subject and the message first.' });
 
-		const profile = await loadJobProfile(supabase, me.id);
-		const replyEmail = profile?.email ?? me.email;
-		if (!profile?.full_name || !replyEmail) return fail(400, { message: 'Add your name and email to your profile.' });
+		const token = gmailToken(event.cookies);
+		if (!token) return fail(401, { reconnect: true, message: 'Connect your Gmail to send.' });
 
 		const [{ count: today }, { count: already }] = await Promise.all([
 			supabase
@@ -142,7 +133,7 @@ export const actions: Actions = {
 
 		const { data: cv } = await supabase
 			.from('cvs')
-			.select('id, file_path, file_name')
+			.select('id, file_path')
 			.eq('id', cvId)
 			.eq('user_id', me.id)
 			.maybeSingle();
@@ -150,25 +141,28 @@ export const actions: Actions = {
 		const { data: file } = await supabase.storage.from('cvs').download(cv.file_path);
 		if (!file) return fail(500, { message: 'Could not read your CV. Try uploading it again.' });
 
+		const profile = await loadJobProfile(supabase, me.id);
 		const ext = cv.file_path.split('.').pop();
-		const sent = await sendEmail({
+		const sent = await sendGmail(token, {
 			to,
-			fromName: `${profile.full_name} via Unplugged`,
-			replyTo: { email: replyEmail, name: profile.full_name },
-			bccSelf: replyEmail,
 			subject,
-			text: `${body}\n\n—\nSent via Unplugged Board. Reply to this email to contact ${profile.full_name} directly.`,
+			text: body,
 			attachment: {
-				name: `${profile.full_name.replace(/[^\p{L}\p{N} -]/gu, '').trim() || 'CV'} - CV.${ext}`,
-				base64: toBase64(await file.arrayBuffer())
+				name: `${profile?.full_name ?? 'CV'} - CV.${ext}`,
+				mimeType: file.type || 'application/pdf',
+				bytes: new Uint8Array(await file.arrayBuffer())
 			}
 		});
 		if (!sent.ok) {
+			if (sent.error === 'reconnect') {
+				forgetGmail(event.cookies);
+				return fail(401, { reconnect: true, message: 'Your Gmail connection expired — connect again and send.' });
+			}
 			return fail(502, {
 				message:
 					sent.error === 'quota'
-						? 'Unplugged has hit its daily email limit. Use "Send from my email" below, or try tomorrow.'
-						: 'The email could not be sent. Try again, or use "Send from my email" below.'
+						? 'Gmail says you are sending too fast. Try again in a few minutes.'
+						: 'The email could not be sent. Try again, or use "Open email app" below.'
 			});
 		}
 

@@ -46,7 +46,7 @@
 		parties: always check them yourself before paying or signing anything.
 	</p>
 	<p class="links mono">
-		<a href="/privacy">Privacy</a> · <a href="/privacy#removal">Request removal</a>
+		<a href="/about">About</a> · <a href="/privacy">Privacy</a> · <a href="/privacy#removal">Request removal</a>
 	</p>
 </footer>
 
